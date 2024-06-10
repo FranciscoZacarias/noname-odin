@@ -1,3 +1,7 @@
 *
 !*.odin
 !*.gitignore
+!.gitignore
+!shader/
+!shader/*.glsl
+!run.bat
