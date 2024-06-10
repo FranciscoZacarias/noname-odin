@@ -17,63 +17,63 @@ WindowHeight : i32 : 600
 Time: f32
 
 main :: proc() {
-  error_callback :: proc "c" (code: i32, desc: cstring) {
-    context = runtime.default_context()
-    fmt.println(desc, code)
-  }  
-  glfw.SetErrorCallback(error_callback)
+	error_callback :: proc "c" (code: i32, desc: cstring) {
+		context = runtime.default_context()
+		fmt.println(desc, code)
+	}  
+	glfw.SetErrorCallback(error_callback)
 
-  if !glfw.Init() {
-    fmt.eprintln("GLFW has failed to load.")
-    return
-  }
-  defer glfw.Terminate()
+	if !glfw.Init() {
+		fmt.eprintln("GLFW has failed to load.")
+		return
+	}
+	defer glfw.Terminate()
 
-  glfw.WindowHint(glfw.RESIZABLE, 1)
-  glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3)
-  glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3)
-  glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+	glfw.WindowHint(glfw.RESIZABLE, 1)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3)
+	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
-  window := glfw.CreateWindow(WindowWidth, WindowHeight, "Odinner", nil, nil)
-  if window == nil {
-    fmt.eprintln("GLFW has failed to load the window.")
-    return
-  }
-  defer glfw.DestroyWindow(window)
+	window := glfw.CreateWindow(WindowWidth, WindowHeight, "Odinner", nil, nil)
+	if window == nil {
+		fmt.eprintln("GLFW has failed to load the window.")
+		return
+	}
+	defer glfw.DestroyWindow(window)
 
-  glfw.MakeContextCurrent(window)
+	glfw.MakeContextCurrent(window)
 
-  key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
-    if key == glfw.KEY_ESCAPE {
-      glfw.SetWindowShouldClose(window, true)
-    }
-  }
-  glfw.SetKeyCallback(window, key_callback)
+	key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
+		if key == glfw.KEY_ESCAPE {
+			glfw.SetWindowShouldClose(window, true)
+		}
+	}
+	glfw.SetKeyCallback(window, key_callback)
 
-  size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
-    gl.Viewport(0, 0, width, height)
-  }
-  glfw.SetFramebufferSizeCallback(window, size_callback)
+	size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
+		gl.Viewport(0, 0, width, height)
+	}
+	glfw.SetFramebufferSizeCallback(window, size_callback)
 
-  set_proc_address :: proc(p: rawptr, name: cstring) { 
-    (cast(^rawptr)p)^ = rawptr(glfw.GetProcAddress(name))
-  }
-  gl.load_up_to(3, 3, set_proc_address) 
+	set_proc_address :: proc(p: rawptr, name: cstring) { 
+		(cast(^rawptr)p)^ = rawptr(glfw.GetProcAddress(name))
+	}
+	gl.load_up_to(3, 3, set_proc_address) 
 
-  renderer_init()
-  texture: u32 = renderer_texture_load("res/kakashi.png")
-  q0 := Quad{lin.vec3{-0.2, -0.2, 0.0}, 0.3, 0.3}
+	renderer_init()
+	texture: u32 = renderer_texture_load("res/kakashi.png")
+	q0 := Quad{lin.vec3{-0.2, -0.2, 0.0}, 0.3, 0.3}
 
-  for !glfw.WindowShouldClose(window) {
-    Time = f32(glfw.GetTime())
-    
-    renderer_begin_frame()
+	for !glfw.WindowShouldClose(window) {
+		Time = f32(glfw.GetTime())
+		
+		renderer_begin_frame()
 
-    renderer_push_quad(q0, lin.vec4{1.0, 0.0, 0.0, 1.0})
+		renderer_push_quad(q0, lin.vec4{1.0, 0.0, 0.0, 1.0})
 
-    renderer_end_frame()
+		renderer_end_frame()
 
-    glfw.SwapBuffers(window)
-    glfw.PollEvents()
-  }
+		glfw.SwapBuffers(window)
+		glfw.PollEvents()
+	}
 }
