@@ -5,6 +5,7 @@ import "base:runtime"
 import "core:fmt"
 import "core:math"
 import "core:c"
+import lin "core:math/linalg/glsl"
 
 import "vendor:glfw"
 import gl "vendor:OpenGL"
@@ -60,15 +61,16 @@ main :: proc() {
   gl.load_up_to(3, 3, set_proc_address) 
 
   renderer_init()
+  texture: u32 = renderer_texture_load("res/kakashi.png")
+  q0 := Quad{lin.vec3{-0.2, -0.2, 0.0}, 0.3, 0.3}
 
-  q0 := quad(v3(-0.2, -0.2, 0.0), 0.3, 0.3)
-  renderer_push_quad(q0, Color_Red)
-  
   for !glfw.WindowShouldClose(window) {
     Time = f32(glfw.GetTime())
     
     renderer_begin_frame()
-    
+
+    renderer_push_quad(q0, lin.vec4{1.0, 0.0, 0.0, 1.0})
+
     renderer_end_frame()
 
     glfw.SwapBuffers(window)

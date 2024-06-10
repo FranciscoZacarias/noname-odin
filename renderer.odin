@@ -5,25 +5,33 @@ import "core:fmt"
 import "core:math"
 import "core:mem"
 import "core:mem/virtual"
+import "core:strings"
+
 import gl "vendor:OpenGL"
+import stb_img "vendor:stb/image"
+import lm "core:math/linalg/glsl"
 
 MAX_TRIANGLES :: 1024
 MAX_VERTICES  :: MAX_TRIANGLES * 3
+MAX_TEXTURES  :: 8
+
+Transform :: struct {
+  scale:    lm.vec3,
+  rotation: lm.quat,
+  position: lm.vec3
+}
 
 Quad :: struct {
-  point:  V3, // bottom left point
+  point:  lm.vec3, // bottom left point
   width:  f32,
   height: f32,
 }
 
-quad :: proc(point: V3, width: f32, height: f32) -> Quad {
-  result: Quad = { point, width, height }
-  return result
-}
-
 Vertex :: struct {
-  position: V3,
-  color: Color
+  position: lm.vec3,
+  color:    lm.vec4,
+  uv:       lm.vec2,
+  texture_index: i32
 }
 
 Renderer :: struct {
@@ -31,25 +39,16 @@ Renderer :: struct {
   vao:    u32,
   vbo:    u32,
 
-  arena:     virtual.Arena,
-  allocator: mem.Allocator,
-
-  triangles_data:   []Vertex,
+  triangles_data:   [MAX_VERTICES]Vertex,
   triangles_count:  u32,
-  triangles_max:    u32
+
+  textures_data:    [MAX_TEXTURES]u32,
+  textures_count:   u32
 }
 
 GlobalRenderer: Renderer
 
 renderer_init :: proc() {
-  arena_init_err := virtual.arena_init_static(&GlobalRenderer.arena)
-  if arena_init_err != mem.Allocator_Error.None {
-    fmt.printf("Error initializing renderer arena. Error: %v", arena_init_err)
-    assert(false)
-  }
-  GlobalRenderer.allocator       = virtual.arena_allocator(&GlobalRenderer.arena)
-  GlobalRenderer.triangles_data  = make([]Vertex, MAX_TRIANGLES, GlobalRenderer.allocator)
-  GlobalRenderer.triangles_max   = MAX_TRIANGLES
   GlobalRenderer.triangles_count = 0
 
   vertex_shader: u32 = gl.CreateShader(gl.VERTEX_SHADER)
@@ -102,7 +101,7 @@ renderer_init :: proc() {
 	gl.AttachShader(GlobalRenderer.shader, fragment_shader)
 	gl.LinkProgram(GlobalRenderer.shader)
   success: i32
-	gl.GetProgramiv(GlobalRenderer.shader, gl.LINK_STATUS, &success)
+  gl.GetProgramiv(GlobalRenderer.shader, gl.LINK_STATUS, &success)
 	if b32(success) == gl.FALSE {
     shader_info_log: [512]u8
 		gl.GetShaderInfoLog(fragment_shader, 512, nil, &shader_info_log[0])
@@ -129,14 +128,51 @@ renderer_init :: proc() {
   gl.VertexAttribPointer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
   gl.EnableVertexAttribArray(1)
 
+  gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, uv))
+  gl.EnableVertexAttribArray(2)
+
   gl.BindBuffer(gl.ARRAY_BUFFER, 0)
   gl.BindVertexArray(0)
 
   gl.UseProgram(GlobalRenderer.shader)
 }
 
+renderer_texture_load :: proc(path: string) -> u32 {
+  width, height, channels: i32
+  stb_img.set_flip_vertically_on_load(1)
+  data := stb_img.load(strings.clone_to_cstring(path), &width, &height, &channels, 0)
+  defer stb_img.image_free(data)
+
+  id: u32
+  gl.GenTextures(1, &id)    
+  gl.BindTexture(gl.TEXTURE_2D, id)
+
+  if channels == 3 {
+    gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB8, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
+  } else  if (channels == 4) {
+    gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+  } else {
+    fmt.printf("Error :: Unexpected number of channels when loading a texture.\n")
+    assert(false)
+  }
+  
+  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  
+  if (channels == 3) {
+    gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGB, gl.UNSIGNED_BYTE, data)
+  } else if (channels == 4) {
+    gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
+  }
+  
+  return id
+}
+
 renderer_begin_frame :: proc() {
   gl.Clear(gl.COLOR_BUFFER_BIT)
+  GlobalRenderer.triangles_count = 0
 }
 
 renderer_end_frame :: proc() {
@@ -144,13 +180,13 @@ renderer_end_frame :: proc() {
 
   gl.BindVertexArray(GlobalRenderer.vao)
   gl.BindBuffer(gl.ARRAY_BUFFER, GlobalRenderer.vbo)
-  gl.BufferSubData(gl.ARRAY_BUFFER, 0, int(GlobalRenderer.triangles_count) * 3 * size_of(Vertex), raw_data(GlobalRenderer.triangles_data))
+  gl.BufferSubData(gl.ARRAY_BUFFER, 0, int(GlobalRenderer.triangles_count) * 3 * size_of(Vertex), raw_data(GlobalRenderer.triangles_data[:]))
 
   gl.DrawArrays(gl.TRIANGLES, 0, i32(GlobalRenderer.triangles_count) * 3)
 }
 
-renderer_push_triangle :: proc(a_position: V3, a_color: Color, b_position: V3, b_color: Color, c_position: V3, c_color: Color) {
-  if GlobalRenderer.triangles_count + 1 >= GlobalRenderer.triangles_max {
+renderer_push_triangle :: proc(a_position: lm.vec3, a_color: lm.vec4, b_position: lm.vec3, b_color: lm.vec4, c_position: lm.vec3, c_color: lm.vec4) {
+  if GlobalRenderer.triangles_count + 1 >= MAX_TRIANGLES {
     fmt.println("Too many triangles. Time to consider a dynamic array...")
     assert(false)
   }
@@ -169,11 +205,49 @@ renderer_push_triangle :: proc(a_position: V3, a_color: Color, b_position: V3, b
   GlobalRenderer.triangles_count += 1
 }
 
-renderer_push_quad :: proc(quad: Quad, color: Color) {
+renderer_push_triangle_texture :: proc(a_position: lm.vec3, b_position: lm.vec3, c_position: lm.vec3, texture: u32) {
+  texture_index: i32 = -1
+  for i in 0..<GlobalRenderer.textures_count {
+    if GlobalRenderer.textures_data[i] == texture {
+      texture_index = i32(i)
+      break
+    }
+  }
+  
+  // TODO(fz): If we add more textures than MAX_TEXTURES, we still have to handle that.
+  // TODO(fz): This should probably be in renderer_load_texture.
+  // TODO(fz): Do we need to clean them up? Didn't implement it yet because I think now they are kept during the lifetime of the program
+  if texture_index == -1 && GlobalRenderer.textures_count < MAX_TEXTURES {
+    GlobalRenderer.textures_data[GlobalRenderer.textures_count] = texture
+    texture_index = i32(GlobalRenderer.textures_count)
+    GlobalRenderer.textures_count += 1
+  }
+
+  index: u32 = GlobalRenderer.triangles_count * 3
+
+  GlobalRenderer.triangles_data[index+0].position = a_position
+  GlobalRenderer.triangles_data[index+0].color    = a_color
+  GlobalRenderer.triangles_data[index+0].uv       = a_uv
+  GlobalRenderer.triangles_data[index+0].texture_index = texture_index
+
+  GlobalRenderer.triangles_data[index+1].position = b_position
+  GlobalRenderer.triangles_data[index+1].color    = b_color
+  GlobalRenderer.triangles_data[index+1].uv       = b_uv
+  GlobalRenderer.triangles_data[index+1].texture_index = texture_index
+
+  GlobalRenderer.triangles_data[index+2].position = c_position
+  GlobalRenderer.triangles_data[index+2].color    = c_color
+  GlobalRenderer.triangles_data[index+2].uv       = c_uv
+  GlobalRenderer.triangles_data[index+2].texture_index = texture_index
+
+  GlobalRenderer.triangles_count += 1
+}
+
+renderer_push_quad :: proc(quad: Quad, color: lm.vec4) {
   a := quad.point
-  b := v3(quad.point.x + quad.width, quad.point.y, quad.point.z)
-  c := v3(quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z)
-  d := v3(quad.point.x, quad.point.y + quad.height, quad.point.z)
+  b := lm.vec3{quad.point.x + quad.width, quad.point.y, quad.point.z}
+  c := lm.vec3{quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z}
+  d := lm.vec3{quad.point.x, quad.point.y + quad.height, quad.point.z}
   renderer_push_triangle(a, color, b, color, c, color)
   renderer_push_triangle(c, color, d, color, a, color)
 }
