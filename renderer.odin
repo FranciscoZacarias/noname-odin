@@ -12,7 +12,7 @@ MAX_VERTICES  :: MAX_TRIANGLES * 3
 
 Vertex :: struct {
   position: Vec3f32,
-  color: Vec4f32
+  color: Color
 }
 
 Renderer :: struct {
@@ -138,7 +138,7 @@ renderer_end_frame :: proc() {
   gl.DrawArrays(gl.TRIANGLES, 0, i32(GlobalRenderer.triangles_count) * 3)
 }
 
-renderer_push_triangle :: proc(a_position: Vec3f32, a_color: Vec4f32, b_position: Vec3f32, b_color: Vec4f32, c_position: Vec3f32, c_color: Vec4f32) {
+renderer_push_triangle :: proc(a_position: Vec3f32, a_color: Color, b_position: Vec3f32, b_color: Color, c_position: Vec3f32, c_color: Color) {
   if GlobalRenderer.triangles_count + 1 >= GlobalRenderer.triangles_max {
     fmt.println("Too many triangles. Time to consider a dynamic array...")
     assert(false)
@@ -156,4 +156,9 @@ renderer_push_triangle :: proc(a_position: Vec3f32, a_color: Vec4f32, b_position
   GlobalRenderer.triangles_data[index+2].color    = c_color
 
   GlobalRenderer.triangles_count += 1
+}
+
+renderer_push_quad :: proc(a_position: Vec3f32, a_color: Color, b_position: Vec3f32, b_color: Color, c_position: Vec3f32, c_color: Color, d_position: Vec3f32, d_color: Color) {
+  renderer_push_triangle(a_position, a_color, b_position, b_color, c_position, c_color)
+  renderer_push_triangle(c_position, c_color, d_position, d_color, a_position, a_color)
 }

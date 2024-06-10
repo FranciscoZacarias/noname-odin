@@ -10,15 +10,12 @@ import "vendor:glfw"
 import gl "vendor:OpenGL"
 
 
-WindowWidth  : i32 : 1280
-WindowHeight : i32 : 720
+WindowWidth  : i32 : 800
+WindowHeight : i32 : 600
 
 Time: f32
 
 main :: proc() {
-
-
-
   error_callback :: proc "c" (code: i32, desc: cstring) {
     context = runtime.default_context()
     fmt.println(desc, code)
@@ -64,10 +61,11 @@ main :: proc() {
 
   renderer_init()
 
-  renderer_push_triangle(
+  renderer_push_quad(
     v3f32(-0.5, -0.5, 0.0), Color_Red,
-    v3f32( 0.5, -0.5, 0.0),  Color_Green,
-    v3f32( 0.0, 0.5, 0.0),   Color_Blue)
+    v3f32( 0.5, -0.5, 0.0), Color_Green,
+    v3f32( 0.5, 0.5, 0.0),  Color_Blue,
+    v3f32(-0.5, 0.5, 0.0),  Color_Yellow)
   
   for !glfw.WindowShouldClose(window) {
     Time = f32(glfw.GetTime())
