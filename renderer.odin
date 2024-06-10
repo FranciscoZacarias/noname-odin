@@ -10,8 +10,19 @@ import gl "vendor:OpenGL"
 MAX_TRIANGLES :: 1024
 MAX_VERTICES  :: MAX_TRIANGLES * 3
 
+Quad :: struct {
+  point:  V3, // bottom left point
+  width:  f32,
+  height: f32,
+}
+
+quad :: proc(point: V3, width: f32, height: f32) -> Quad {
+  result: Quad = { point, width, height }
+  return result
+}
+
 Vertex :: struct {
-  position: Vec3f32,
+  position: V3,
   color: Color
 }
 
@@ -138,7 +149,7 @@ renderer_end_frame :: proc() {
   gl.DrawArrays(gl.TRIANGLES, 0, i32(GlobalRenderer.triangles_count) * 3)
 }
 
-renderer_push_triangle :: proc(a_position: Vec3f32, a_color: Color, b_position: Vec3f32, b_color: Color, c_position: Vec3f32, c_color: Color) {
+renderer_push_triangle :: proc(a_position: V3, a_color: Color, b_position: V3, b_color: Color, c_position: V3, c_color: Color) {
   if GlobalRenderer.triangles_count + 1 >= GlobalRenderer.triangles_max {
     fmt.println("Too many triangles. Time to consider a dynamic array...")
     assert(false)
@@ -158,7 +169,11 @@ renderer_push_triangle :: proc(a_position: Vec3f32, a_color: Color, b_position: 
   GlobalRenderer.triangles_count += 1
 }
 
-renderer_push_quad :: proc(a_position: Vec3f32, a_color: Color, b_position: Vec3f32, b_color: Color, c_position: Vec3f32, c_color: Color, d_position: Vec3f32, d_color: Color) {
-  renderer_push_triangle(a_position, a_color, b_position, b_color, c_position, c_color)
-  renderer_push_triangle(c_position, c_color, d_position, d_color, a_position, a_color)
+renderer_push_quad :: proc(quad: Quad, color: Color) {
+  a := quad.point
+  b := v3(quad.point.x + quad.width, quad.point.y, quad.point.z)
+  c := v3(quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z)
+  d := v3(quad.point.x, quad.point.y + quad.height, quad.point.z)
+  renderer_push_triangle(a, color, b, color, c, color)
+  renderer_push_triangle(c, color, d, color, a, color)
 }

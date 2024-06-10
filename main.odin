@@ -61,11 +61,8 @@ main :: proc() {
 
   renderer_init()
 
-  renderer_push_quad(
-    v3f32(-0.5, -0.5, 0.0), Color_Red,
-    v3f32( 0.5, -0.5, 0.0), Color_Green,
-    v3f32( 0.5, 0.5, 0.0),  Color_Blue,
-    v3f32(-0.5, 0.5, 0.0),  Color_Yellow)
+  q0 := quad(v3(-0.2, -0.2, 0.0), 0.3, 0.3)
+  renderer_push_quad(q0, Color_Red)
   
   for !glfw.WindowShouldClose(window) {
     Time = f32(glfw.GetTime())
