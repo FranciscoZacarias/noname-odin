@@ -5,3 +5,4 @@
 !shader/
 !shader/*.glsl
 !run.bat
+!build.bat

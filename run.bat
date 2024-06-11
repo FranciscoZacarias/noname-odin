@@ -18,4 +18,5 @@ if defined CLEAR_FLAG (
 	if exist odin-ogl-cube.pdb del odin-ogl-cube.pdb
 )
 
+@echo on
 odin run . -vet-semicolon %DEBUG_FLAG%
