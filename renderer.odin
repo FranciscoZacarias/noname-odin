@@ -12,6 +12,8 @@ MAX_TRIANGLES :: 1024
 MAX_VERTICES  :: MAX_TRIANGLES * 3
 MAX_TEXTURES  :: 8
 
+Shader_Program :: distinct u32
+
 Transform :: struct {
 	scale:    lm.vec3,
 	rotation: lm.quat,
@@ -31,6 +33,11 @@ Vertex :: struct {
 	texture:  i32
 }
 
+Render_Group :: struct {
+	triangles_data:   [MAX_VERTICES]Vertex,
+	triangles_count:  u32,
+}
+
 Renderer :: struct {
 	shader: u32,
 	vao:    u32,
@@ -43,10 +50,10 @@ Renderer :: struct {
 	textures_count:   u32
 }
 
-GlobalRenderer: Renderer
+GRenderer: Renderer
 
 renderer_init :: proc () {
-	GlobalRenderer.triangles_count = 0
+	GRenderer.triangles_count = 0
 
 	vertex_shader: u32 = gl.CreateShader(gl.VERTEX_SHADER)
 	{
@@ -92,31 +99,31 @@ renderer_init :: proc () {
 		}
 	}
 
-	GlobalRenderer.shader = gl.CreateProgram()
+	GRenderer.shader = gl.CreateProgram()
 	{
-		gl.AttachShader(GlobalRenderer.shader, vertex_shader)
-		gl.AttachShader(GlobalRenderer.shader, fragment_shader)
-		gl.LinkProgram(GlobalRenderer.shader)
+		gl.AttachShader(GRenderer.shader, vertex_shader)
+		gl.AttachShader(GRenderer.shader, fragment_shader)
+		gl.LinkProgram(GRenderer.shader)
 		success: i32
-		gl.GetProgramiv(GlobalRenderer.shader, gl.LINK_STATUS, &success)
+		gl.GetProgramiv(GRenderer.shader, gl.LINK_STATUS, &success)
 		if b32(success) == gl.FALSE {
 			shader_info_log: [512]u8
 			gl.GetShaderInfoLog(fragment_shader, 512, nil, raw_data(shader_info_log[:]))
 			fmt.printf("Error linking shader program: '%s'", shader_info_log)
 		}
-		gl.DetachShader(GlobalRenderer.shader, vertex_shader)
+		gl.DetachShader(GRenderer.shader, vertex_shader)
 		gl.DeleteShader(vertex_shader)
-		gl.DetachShader(GlobalRenderer.shader, fragment_shader)
+		gl.DetachShader(GRenderer.shader, fragment_shader)
 		gl.DeleteShader(fragment_shader)
 	}
 
 	// VAO
-	gl.GenVertexArrays(1, &GlobalRenderer.vao)
-	gl.BindVertexArray(GlobalRenderer.vao)
+	gl.GenVertexArrays(1, &GRenderer.vao)
+	gl.BindVertexArray(GRenderer.vao)
 
 	// VBO
-	gl.GenBuffers(1, &GlobalRenderer.vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, GlobalRenderer.vbo)
+	gl.GenBuffers(1, &GRenderer.vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * MAX_VERTICES, nil, gl.DYNAMIC_DRAW)
 
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
@@ -134,7 +141,7 @@ renderer_init :: proc () {
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
 
-	gl.UseProgram(GlobalRenderer.shader)
+	gl.UseProgram(GRenderer.shader)
 
 	textures := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
 	renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures))
@@ -177,18 +184,18 @@ renderer_texture_load :: proc (path: string) -> u32 {
 }
 
 renderer_begin_frame :: proc () {
-	gl.UseProgram(GlobalRenderer.shader)
+	gl.UseProgram(GRenderer.shader)
 
 	gl.Clear(gl.COLOR_BUFFER_BIT)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
 
-	GlobalRenderer.triangles_count = 0
-	GlobalRenderer.textures_count  = 0
+	GRenderer.triangles_count = 0
+	GRenderer.textures_count  = 0
 }
 
 renderer_end_frame :: proc () {
-	gl.UseProgram(GlobalRenderer.shader)
+	gl.UseProgram(GRenderer.shader)
 
 	model := lm.identity(lm.mat4)
 	renderer_set_uniform_mat4fv("u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
@@ -197,14 +204,14 @@ renderer_end_frame :: proc () {
 	
 	for i: u32 = 0; i < MAX_TEXTURES; i += 1 {
 		gl.ActiveTexture(gl.TEXTURE0 + i)
-		gl.BindTexture(gl.TEXTURE_2D, GlobalRenderer.textures_data[i])
+		gl.BindTexture(gl.TEXTURE_2D, GRenderer.textures_data[i])
 	}
 
-	gl.BindVertexArray(GlobalRenderer.vao)
-	gl.BindBuffer(gl.ARRAY_BUFFER, GlobalRenderer.vbo)
-	gl.BufferSubData(gl.ARRAY_BUFFER, 0, int(GlobalRenderer.triangles_count) * 3 * size_of(Vertex), raw_data(GlobalRenderer.triangles_data[:]))
+	gl.BindVertexArray(GRenderer.vao)
+	gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
+	gl.BufferSubData(gl.ARRAY_BUFFER, 0, int(GRenderer.triangles_count) * 3 * size_of(Vertex), raw_data(GRenderer.triangles_data[:]))
 
-	gl.DrawArrays(gl.TRIANGLES, 0, i32(GlobalRenderer.triangles_count) * 3)
+	gl.DrawArrays(gl.TRIANGLES, 0, i32(GRenderer.triangles_count) * 3)
 }
 
 renderer_push_triangle :: proc ( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.vec4,
@@ -212,8 +219,8 @@ renderer_push_triangle :: proc ( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm
 																c_position: lm.vec3, c_uv: lm.vec2, c_color: lm.vec4,
 																texture: u32) {
 	texture_index: i32 = -1
-	for i in 0..<GlobalRenderer.textures_count {
-		if GlobalRenderer.textures_data[i] == texture {
+	for i in 0..<GRenderer.textures_count {
+		if GRenderer.textures_data[i] == texture {
 			texture_index = i32(i)
 			break
 		}
@@ -222,30 +229,30 @@ renderer_push_triangle :: proc ( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm
 	// TODO(fz): If we add more textures than MAX_TEXTURES, we still have to handle that.
 	// TODO(fz): This should probably be in renderer_load_texture.
 	// TODO(fz): Do we need to clean them up? Didn't implement it yet because I think now they are kept during the lifetime of the program
-	if texture_index == -1 && GlobalRenderer.textures_count < MAX_TEXTURES {
-		GlobalRenderer.textures_data[GlobalRenderer.textures_count] = texture
-		texture_index = i32(GlobalRenderer.textures_count)
-		GlobalRenderer.textures_count += 1
+	if texture_index == -1 && GRenderer.textures_count < MAX_TEXTURES {
+		GRenderer.textures_data[GRenderer.textures_count] = texture
+		texture_index = i32(GRenderer.textures_count)
+		GRenderer.textures_count += 1
 	}
 
-	index: u32 = GlobalRenderer.triangles_count * 3
+	index: u32 = GRenderer.triangles_count * 3
 
-	GlobalRenderer.triangles_data[index+0].position = a_position
-	GlobalRenderer.triangles_data[index+0].color    = a_color
-	GlobalRenderer.triangles_data[index+0].uv       = a_uv
-	GlobalRenderer.triangles_data[index+0].texture  = texture_index
+	GRenderer.triangles_data[index+0].position = a_position
+	GRenderer.triangles_data[index+0].color    = a_color
+	GRenderer.triangles_data[index+0].uv       = a_uv
+	GRenderer.triangles_data[index+0].texture  = texture_index
 
-	GlobalRenderer.triangles_data[index+1].position = b_position
-	GlobalRenderer.triangles_data[index+1].color    = b_color
-	GlobalRenderer.triangles_data[index+1].uv       = b_uv
-	GlobalRenderer.triangles_data[index+1].texture  = texture_index
+	GRenderer.triangles_data[index+1].position = b_position
+	GRenderer.triangles_data[index+1].color    = b_color
+	GRenderer.triangles_data[index+1].uv       = b_uv
+	GRenderer.triangles_data[index+1].texture  = texture_index
 
-	GlobalRenderer.triangles_data[index+2].position = c_position
-	GlobalRenderer.triangles_data[index+2].color    = c_color
-	GlobalRenderer.triangles_data[index+2].uv       = c_uv
-	GlobalRenderer.triangles_data[index+2].texture  = texture_index
+	GRenderer.triangles_data[index+2].position = c_position
+	GRenderer.triangles_data[index+2].color    = c_color
+	GRenderer.triangles_data[index+2].uv       = c_uv
+	GRenderer.triangles_data[index+2].texture  = texture_index
 
-	GlobalRenderer.triangles_count += 1
+	GRenderer.triangles_count += 1
 }
 
 renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
@@ -258,13 +265,13 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 }
 
 renderer_update_window_dimensions :: proc (width: i32, height: i32) {
-	gl.UseProgram(GlobalRenderer.shader)
+	gl.UseProgram(GRenderer.shader)
 	renderer_set_uniform_i32("u_window_width", width)
 	renderer_set_uniform_i32("u_window_height", height)
 }
 
 renderer_set_uniform_mat4fv :: proc (uniform: string, mat: ^lm.mat4) {
-	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
+	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find Mat4fv Uniform :: mat4 '%v'\n", uniform)
 		return
@@ -273,7 +280,7 @@ renderer_set_uniform_mat4fv :: proc (uniform: string, mat: ^lm.mat4) {
 }
 
 renderer_set_uniform_f32 :: proc (uniform: string, f: f32) {
-	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
+	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find f32 Uniform :: float '%v'\n", uniform)
 		return
@@ -282,7 +289,7 @@ renderer_set_uniform_f32 :: proc (uniform: string, f: f32) {
 }
 
 renderer_set_uniform_i32v :: proc (uniform: string, count: i32, i: ^i32) {
-	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
+	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find [%v]i32 Uniform :: '%v'\n", count, uniform)
 		return
@@ -291,7 +298,7 @@ renderer_set_uniform_i32v :: proc (uniform: string, count: i32, i: ^i32) {
 }
 
 renderer_set_uniform_i32 :: proc (uniform: string, i: i32) {
-	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
+	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find i32 Uniform :: '%v'\n", uniform)
 		return
