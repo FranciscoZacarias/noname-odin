@@ -2,9 +2,6 @@ package odinner
 
 import "core:os"
 import "core:fmt"
-import "core:math"
-import "core:mem"
-import "core:mem/virtual"
 import "core:strings"
 
 import gl "vendor:OpenGL"
@@ -18,7 +15,7 @@ MAX_TEXTURES  :: 8
 Transform :: struct {
 	scale:    lm.vec3,
 	rotation: lm.quat,
-	position: lm.vec3
+	position: lm.vec3,
 }
 
 Quad :: struct {
@@ -48,7 +45,7 @@ Renderer :: struct {
 
 GlobalRenderer: Renderer
 
-renderer_init :: proc() {
+renderer_init :: proc () {
 	GlobalRenderer.triangles_count = 0
 
 	vertex_shader: u32 = gl.CreateShader(gl.VERTEX_SHADER)
@@ -83,7 +80,6 @@ renderer_init :: proc() {
 			assert(false)
 		}
 		fs_data_copy := cstring(raw_data(string(fs_source)))
-		fragment_shader_source_path: cstring = "shader/fs.glsl"
 		gl.ShaderSource(fragment_shader, 1, &fs_data_copy, nil)
 		gl.CompileShader(fragment_shader)
 		success: i32
@@ -138,14 +134,16 @@ renderer_init :: proc() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
 
+	gl.UseProgram(GlobalRenderer.shader)
+
 	textures := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
-	renderer_set_uniform_i32v(GlobalRenderer.shader, "u_texture", 8, raw_data(&textures))
+	renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures))
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
-renderer_texture_load :: proc(path: string) -> u32 {
+renderer_texture_load :: proc (path: string) -> u32 {
 	width, height, channels: i32
 	stb_img.set_flip_vertically_on_load(1)
 	data := stb_img.load(strings.clone_to_cstring(path), &width, &height, &channels, 0)
@@ -178,18 +176,30 @@ renderer_texture_load :: proc(path: string) -> u32 {
 	return id
 }
 
-renderer_begin_frame :: proc() {
+renderer_begin_frame :: proc () {
+	gl.UseProgram(GlobalRenderer.shader)
+
 	gl.Clear(gl.COLOR_BUFFER_BIT)
+  gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  gl.Enable(gl.DEPTH_TEST)
+
 	GlobalRenderer.triangles_count = 0
+	GlobalRenderer.textures_count  = 0
 }
 
-renderer_end_frame :: proc() {
+renderer_end_frame :: proc () {
+	gl.UseProgram(GlobalRenderer.shader)
+
+	model := lm.identity(lm.mat4)
+	renderer_set_uniform_mat4fv("u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
+	renderer_set_uniform_mat4fv("u_view",       &AppState.view)
+	renderer_set_uniform_mat4fv("u_projection", &AppState.projection)
+	
 	for i: u32 = 0; i < MAX_TEXTURES; i += 1 {
 		gl.ActiveTexture(gl.TEXTURE0 + i)
 		gl.BindTexture(gl.TEXTURE_2D, GlobalRenderer.textures_data[i])
 	}
 
-	gl.UseProgram(GlobalRenderer.shader)
 	gl.BindVertexArray(GlobalRenderer.vao)
 	gl.BindBuffer(gl.ARRAY_BUFFER, GlobalRenderer.vbo)
 	gl.BufferSubData(gl.ARRAY_BUFFER, 0, int(GlobalRenderer.triangles_count) * 3 * size_of(Vertex), raw_data(GlobalRenderer.triangles_data[:]))
@@ -197,7 +207,7 @@ renderer_end_frame :: proc() {
 	gl.DrawArrays(gl.TRIANGLES, 0, i32(GlobalRenderer.triangles_count) * 3)
 }
 
-renderer_push_triangle :: proc( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.vec4,
+renderer_push_triangle :: proc ( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.vec4,
 																b_position: lm.vec3, b_uv: lm.vec2, b_color: lm.vec4,
 																c_position: lm.vec3, c_uv: lm.vec2, c_color: lm.vec4,
 																texture: u32) {
@@ -238,7 +248,7 @@ renderer_push_triangle :: proc( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.
 	GlobalRenderer.triangles_count += 1
 }
 
-renderer_push_quad :: proc(quad: Quad, color: lm.vec4, texture: u32) {
+renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	a := quad.point
 	b := lm.vec3{quad.point.x + quad.width, quad.point.y, quad.point.z}
 	c := lm.vec3{quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z}
@@ -247,30 +257,44 @@ renderer_push_quad :: proc(quad: Quad, color: lm.vec4, texture: u32) {
 	renderer_push_triangle(c, lm.vec2{1.0, 1.0}, color, d, lm.vec2{0.0, 1.0}, color, a, lm.vec2{0.0, 0.0}, color, texture)
 }
 
+renderer_update_window_dimensions :: proc (width: i32, height: i32) {
+	gl.UseProgram(GlobalRenderer.shader)
+	renderer_set_uniform_i32("u_window_width", width)
+	renderer_set_uniform_i32("u_window_height", height)
+}
 
-renderer_set_uniform_mat4fv :: proc (shader: u32, uniform: string, mat: ^lm.mat4) {
-	uniform_location: i32 = gl.GetUniformLocation(shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_mat4fv :: proc (uniform: string, mat: ^lm.mat4) {
+	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
-		fmt.printf("Unable to set Mat4fv Uniform :: %v not found\n", uniform)
+		fmt.printf("Unable to find Mat4fv Uniform :: mat4 '%v'\n", uniform)
 		return
 	}
 	gl.UniformMatrix4fv(uniform_location, 1, false, raw_data(mat))
 }
 
-renderer_set_uniform_f32 :: proc(shader: u32, uniform: string, f: f32) {
-	uniform_location: i32 = gl.GetUniformLocation(shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_f32 :: proc (uniform: string, f: f32) {
+	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
-		fmt.printf("Unable to set f32 Uniform :: %v not found\n", uniform)
+		fmt.printf("Unable to find f32 Uniform :: float '%v'\n", uniform)
 		return
 	}
 	gl.Uniform1f(uniform_location, f)
 }
 
-renderer_set_uniform_i32v :: proc(shader: u32, uniform: string, count: i32, i: ^i32) {
-	uniform_location: i32 = gl.GetUniformLocation(shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_i32v :: proc (uniform: string, count: i32, i: ^i32) {
+	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
-		fmt.printf("Unable to set [%v]i32 Uniform :: %v not found\n", count, uniform)
+		fmt.printf("Unable to find [%v]i32 Uniform :: '%v'\n", count, uniform)
 		return
 	}
 	gl.Uniform1iv(uniform_location, count, i)
+}
+
+renderer_set_uniform_i32 :: proc (uniform: string, i: i32) {
+	uniform_location: i32 = gl.GetUniformLocation(GlobalRenderer.shader, strings.clone_to_cstring(uniform))
+	if uniform_location == -1 {
+		fmt.printf("Unable to find i32 Uniform :: '%v'\n", uniform)
+		return
+	}
+	gl.Uniform1i(uniform_location, i)
 }

@@ -3,8 +3,6 @@ package odinner
 import "base:runtime"
 
 import "core:fmt"
-import "core:math"
-import "core:c"
 import lm "core:math/linalg/glsl"
 
 import "vendor:glfw"
@@ -13,9 +11,19 @@ import gl "vendor:OpenGL"
 WindowWidth  : i32 : 400
 WindowHeight : i32 : 400
 
-Time: f32
+Application_State :: struct {
+	time: f32,
+	view:       lm.mat4,
+	projection: lm.mat4,
 
-main :: proc() {
+	window_width:  i32,
+	window_height: i32,
+	window_dimensions_dirty_this_frame: bool
+}
+
+AppState: Application_State
+
+main :: proc () {
 	error_callback :: proc "c" (code: i32, desc: cstring) {
 		context = runtime.default_context()
 		fmt.println(desc, code)
@@ -51,20 +59,28 @@ main :: proc() {
 
 	size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
 		gl.Viewport(0, 0, width, height)
+		context = runtime.default_context()
+		renderer_update_window_dimensions(width, height)
 	}
 	glfw.SetFramebufferSizeCallback(window, size_callback)
 
-	set_proc_address :: proc(p: rawptr, name: cstring) { 
+	set_proc_address :: proc (p: rawptr, name: cstring) { 
 		(cast(^rawptr)p)^ = rawptr(glfw.GetProcAddress(name))
 	}
 	gl.load_up_to(3, 3, set_proc_address) 
+
+	AppState = {
+		time       = 0,
+		view       = lm.identity(lm.mat4),
+		projection = lm.identity(lm.mat4)
+	}
 
 	renderer_init()
 	texture: u32 = renderer_texture_load("res/kakashi.png")
 	q0 := Quad{lm.vec3{-0.2, -0.2, 0.0}, 0.3, 0.3}
 
 	for !glfw.WindowShouldClose(window) {
-		Time = f32(glfw.GetTime())
+		AppState.time = f32(glfw.GetTime())
 		
 		renderer_begin_frame()
 

@@ -9,8 +9,12 @@ out vec4  vertex_color;
 out vec2  vertex_uv;
 out float vertex_texture;
 
+uniform mat4 u_model;
+uniform mat4 u_view;
+uniform mat4 u_projection;
+
 void main() {
-  gl_Position = vec4(pos, 1.0); 
+ gl_Position =  u_projection * u_view * u_model * vec4(pos, 1.0); 
 
   vertex_color   = color;
   vertex_uv      = uv;
