@@ -77,14 +77,13 @@ main :: proc () {
 
 	renderer_init()
 	texture: u32 = renderer_texture_load("res/kakashi.png")
-	q0 := Quad{lm.vec3{-0.2, -0.2, 0.0}, 0.3, 0.3}
+	q0 := Quad{lm.vec3{-0.25, -0.25, 0.0}, 0.5, 0.5}
+	renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, texture)
 
 	for !glfw.WindowShouldClose(window) {
 		AppState.time = f32(glfw.GetTime())
 		
 		renderer_begin_frame()
-
-		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, texture)
 
 		renderer_end_frame()
 

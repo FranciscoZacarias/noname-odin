@@ -12,14 +12,6 @@ MAX_TRIANGLES :: 1024
 MAX_VERTICES  :: MAX_TRIANGLES * 3
 MAX_TEXTURES  :: 8
 
-Shader_Program :: distinct u32
-
-Transform :: struct {
-	scale:    lm.vec3,
-	rotation: lm.quat,
-	position: lm.vec3,
-}
-
 Quad :: struct {
 	point:  lm.vec3, // bottom left point
 	width:  f32,
@@ -33,124 +25,102 @@ Vertex :: struct {
 	texture:  i32
 }
 
-Render_Group :: struct {
-	triangles_data:   [MAX_VERTICES]Vertex,
-	triangles_count:  u32,
-}
-
 Renderer :: struct {
 	shader: u32,
 	vao:    u32,
 	vbo:    u32,
 
-	triangles_data:   [MAX_VERTICES]Vertex,
-	triangles_count:  u32,
-
-	textures_data:    [MAX_TEXTURES]u32,
-	textures_count:   u32
+	vertices: [dynamic]Vertex,
+	textures: [dynamic]u32,
 }
 
 GRenderer: Renderer
 
 renderer_init :: proc () {
-	GRenderer.triangles_count = 0
+	shader_ids := [2]u32{}
+	compile_shader_ok: bool
 
-	vertex_shader: u32 = gl.CreateShader(gl.VERTEX_SHADER)
-	{
-		vs_source, vs_success := os.read_entire_file("shader/vs.glsl")
-		defer delete(vs_source)
-		if !vs_success { 
-			fmt.printf("Error reading vs.glsl\n")
-			assert(false)
-		}
-
-		vs_data_copy := cstring(raw_data(string(vs_source)))
-		gl.ShaderSource(vertex_shader, 1, &vs_data_copy, nil)
-		gl.CompileShader(vertex_shader)
-		success: i32
-		gl.GetShaderiv(vertex_shader, gl.COMPILE_STATUS, &success)
-			
-		if b32(success) == gl.FALSE {
-			shader_info_log: [512]u8
-			gl.GetShaderInfoLog(vertex_shader, 512, nil, raw_data(shader_info_log[:]))
-			fmt.printf("Error compiling vertex shader: %s", shader_info_log)
-			assert(false)
-		}
+	vs_source, vs_success := os.read_entire_file("shader/default_vs.glsl")
+	defer delete(vs_source)
+	if !vs_success { 
+		fmt.printf("Error reading default_vs.glsl\n")
+		assert(false)
+	}
+	shader_ids[0], compile_shader_ok = gl.compile_shader_from_source(string(vs_source), gl.Shader_Type.VERTEX_SHADER)
+	if !compile_shader_ok {
+		assert(false)
 	}
 
-	fragment_shader: u32 = gl.CreateShader(gl.FRAGMENT_SHADER)
-	{
-		fs_source, fs_success := os.read_entire_file("shader/fs.glsl")
-		defer delete(fs_source)
-		if !fs_success { 
-			fmt.printf("Error reading vs.glsl\n")
-			assert(false)
-		}
-		fs_data_copy := cstring(raw_data(string(fs_source)))
-		gl.ShaderSource(fragment_shader, 1, &fs_data_copy, nil)
-		gl.CompileShader(fragment_shader)
-		success: i32
-		gl.GetShaderiv(fragment_shader, gl.COMPILE_STATUS, &success)
-		if b32(success) == gl.FALSE {
-			shader_info_log: [512]u8
-			gl.GetShaderInfoLog(fragment_shader, 512, nil, &shader_info_log[0])
-			fmt.printf("Error compiling fragment shader: %s", shader_info_log)
-			assert(false)
-		}
+	fs_source, fs_success := os.read_entire_file("shader/default_fs.glsl")
+	defer delete(fs_source)
+	if !fs_success { 
+		fmt.printf("Error reading default_vs.glsl\n")
+		assert(false)
+	}
+	shader_ids[1], compile_shader_ok = gl.compile_shader_from_source(string(fs_source), gl.Shader_Type.FRAGMENT_SHADER)
+	if !compile_shader_ok {
+		assert(false)
 	}
 
-	GRenderer.shader = gl.CreateProgram()
-	{
-		gl.AttachShader(GRenderer.shader, vertex_shader)
-		gl.AttachShader(GRenderer.shader, fragment_shader)
-		gl.LinkProgram(GRenderer.shader)
-		success: i32
-		gl.GetProgramiv(GRenderer.shader, gl.LINK_STATUS, &success)
-		if b32(success) == gl.FALSE {
-			shader_info_log: [512]u8
-			gl.GetShaderInfoLog(fragment_shader, 512, nil, raw_data(shader_info_log[:]))
-			fmt.printf("Error linking shader program: '%s'", shader_info_log)
-		}
-		gl.DetachShader(GRenderer.shader, vertex_shader)
-		gl.DeleteShader(vertex_shader)
-		gl.DetachShader(GRenderer.shader, fragment_shader)
-		gl.DeleteShader(fragment_shader)
+	shader_program, shader_program_ok := gl.create_and_link_program(shader_ids[:])
+	if !shader_program_ok {
+		assert(false)
+	}
+	GRenderer.shader = shader_program
+
+	for shader in shader_ids {
+		gl.DetachShader(shader_program, shader)
+		gl.DeleteShader(shader)
 	}
 
-	// VAO
-	gl.GenVertexArrays(1, &GRenderer.vao)
-	gl.BindVertexArray(GRenderer.vao)
+	// Default VAO
+	{
+		gl.GenVertexArrays(1, &GRenderer.vao)
+		gl.BindVertexArray(GRenderer.vao)
+	}
 
-	// VBO
-	gl.GenBuffers(1, &GRenderer.vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * MAX_VERTICES, nil, gl.DYNAMIC_DRAW)
-
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
-	gl.EnableVertexAttribArray(0)
+	// Default VBO
+	{
+		gl.GenBuffers(1, &GRenderer.vbo)
+		gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
+		gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * MAX_VERTICES, nil, gl.DYNAMIC_DRAW)
 	
-	gl.VertexAttribPointer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
-	gl.EnableVertexAttribArray(1)
-
-	gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, uv))
-	gl.EnableVertexAttribArray(2)
-
-	gl.VertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, texture))
-	gl.EnableVertexAttribArray(3)
+		gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
+		gl.EnableVertexAttribArray(0)
+		gl.VertexAttribPointer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
+		gl.EnableVertexAttribArray(1)
+		gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, uv))
+		gl.EnableVertexAttribArray(2)
+		gl.VertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, texture))
+		gl.EnableVertexAttribArray(3)
+	}
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
 
 	gl.UseProgram(GRenderer.shader)
+	{
+		textures := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
+		renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures))
+	}
+	gl.UseProgram(0)
 
-	textures := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
-	renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures))
+	GRenderer.vertices = make([dynamic]Vertex, 0)
+	reserve(&GRenderer.vertices, MAX_VERTICES)
+	GRenderer.textures = make([dynamic]u32, 0)
+	reserve(&GRenderer.textures, MAX_TEXTURES)
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
 renderer_texture_load :: proc (path: string) -> u32 {
+	exists := os.exists(path)
+	if !exists {
+		fmt.printf("Texture '%v' doesn't exist.\n", path)
+		assert(false)
+	}
+
 	width, height, channels: i32
 	stb_img.set_flip_vertically_on_load(1)
 	data := stb_img.load(strings.clone_to_cstring(path), &width, &height, &channels, 0)
@@ -189,9 +159,6 @@ renderer_begin_frame :: proc () {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
-
-	GRenderer.triangles_count = 0
-	GRenderer.textures_count  = 0
 }
 
 renderer_end_frame :: proc () {
@@ -202,25 +169,25 @@ renderer_end_frame :: proc () {
 	renderer_set_uniform_mat4fv("u_view",       &AppState.view)
 	renderer_set_uniform_mat4fv("u_projection", &AppState.projection)
 	
-	for i: u32 = 0; i < MAX_TEXTURES; i += 1 {
+	for i: u32 = 0; i < u32(len(GRenderer.textures)); i += 1 {
 		gl.ActiveTexture(gl.TEXTURE0 + i)
-		gl.BindTexture(gl.TEXTURE_2D, GRenderer.textures_data[i])
+		gl.BindTexture(gl.TEXTURE_2D, GRenderer.textures[i])
 	}
 
 	gl.BindVertexArray(GRenderer.vao)
 	gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
-	gl.BufferSubData(gl.ARRAY_BUFFER, 0, int(GRenderer.triangles_count) * 3 * size_of(Vertex), raw_data(GRenderer.triangles_data[:]))
+	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(GRenderer.vertices) * 3 * size_of(Vertex), raw_data(GRenderer.vertices[:]))
 
-	gl.DrawArrays(gl.TRIANGLES, 0, i32(GRenderer.triangles_count) * 3)
+	gl.DrawArrays(gl.TRIANGLES, 0, i32(len(GRenderer.vertices)) * 3)
 }
 
-renderer_push_triangle :: proc ( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.vec4,
+renderer_push_triangle :: proc (a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.vec4,
 																b_position: lm.vec3, b_uv: lm.vec2, b_color: lm.vec4,
 																c_position: lm.vec3, c_uv: lm.vec2, c_color: lm.vec4,
 																texture: u32) {
 	texture_index: i32 = -1
-	for i in 0..<GRenderer.textures_count {
-		if GRenderer.textures_data[i] == texture {
+	for i in 0..<len(GRenderer.textures) {
+		if GRenderer.textures[i] == texture {
 			texture_index = i32(i)
 			break
 		}
@@ -229,30 +196,22 @@ renderer_push_triangle :: proc ( a_position: lm.vec3, a_uv: lm.vec2, a_color: lm
 	// TODO(fz): If we add more textures than MAX_TEXTURES, we still have to handle that.
 	// TODO(fz): This should probably be in renderer_load_texture.
 	// TODO(fz): Do we need to clean them up? Didn't implement it yet because I think now they are kept during the lifetime of the program
-	if texture_index == -1 && GRenderer.textures_count < MAX_TEXTURES {
-		GRenderer.textures_data[GRenderer.textures_count] = texture
-		texture_index = i32(GRenderer.textures_count)
-		GRenderer.textures_count += 1
+	total_textures := len(GRenderer.textures)
+	if texture_index == -1 && total_textures < MAX_TEXTURES {
+		append(&GRenderer.textures, texture)
+		texture_index = i32(total_textures)
+	}
+	if total_textures >= MAX_TEXTURES {
+		fmt.println("Max textures reached!\n")
+		assert(false)
 	}
 
-	index: u32 = GRenderer.triangles_count * 3
-
-	GRenderer.triangles_data[index+0].position = a_position
-	GRenderer.triangles_data[index+0].color    = a_color
-	GRenderer.triangles_data[index+0].uv       = a_uv
-	GRenderer.triangles_data[index+0].texture  = texture_index
-
-	GRenderer.triangles_data[index+1].position = b_position
-	GRenderer.triangles_data[index+1].color    = b_color
-	GRenderer.triangles_data[index+1].uv       = b_uv
-	GRenderer.triangles_data[index+1].texture  = texture_index
-
-	GRenderer.triangles_data[index+2].position = c_position
-	GRenderer.triangles_data[index+2].color    = c_color
-	GRenderer.triangles_data[index+2].uv       = c_uv
-	GRenderer.triangles_data[index+2].texture  = texture_index
-
-	GRenderer.triangles_count += 1
+	a := Vertex{ a_position, a_color, a_uv, texture_index }
+	append(&GRenderer.vertices, a)
+	b := Vertex{ b_position, b_color, b_uv, texture_index }
+	append(&GRenderer.vertices, b)
+	c := Vertex{ c_position, c_color, c_uv, texture_index }
+	append(&GRenderer.vertices, c)
 }
 
 renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {

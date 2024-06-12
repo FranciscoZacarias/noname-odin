@@ -11,6 +11,5 @@ uniform int u_window_width;
 uniform int u_window_height;
 
 void main() {
-  vec2 tex_coords = gl_FragCoord.xy / vec2(u_window_width, u_window_height);
   pixel_color = vertex_color * texture(u_texture[int(vertex_texture)], vertex_uv);
 }
