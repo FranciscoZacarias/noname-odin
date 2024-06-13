@@ -8,6 +8,8 @@ import gl "vendor:OpenGL"
 import stb_img "vendor:stb/image"
 import lm "core:math/linalg/glsl"
 
+MSAA_SAMPLES :: 4
+
 MAX_TRIANGLES :: 1024
 MAX_VERTICES  :: MAX_TRIANGLES * 3
 MAX_TEXTURES  :: 8
@@ -32,59 +34,74 @@ Renderer :: struct {
 
 	vertices: [dynamic]Vertex,
 	textures: [dynamic]u32,
+
+	msaa_fbo: u32,
+	msaa_rbo: u32,
+	msaa_texture_color_buffer_multisampled: u32,
+
+	post_processing_fbo: u32,
+
+	screen_texture: u32,
+	screen_shader: u32,
+	screen_vao: u32,
+	screen_vbo: u32,
 }
 
 GRenderer: Renderer
 
 renderer_init :: proc () {
+	using GRenderer
+
 	shader_ids := [2]u32{}
 	compile_shader_ok: bool
 
-	vs_source, vs_success := os.read_entire_file("shader/default_vs.glsl")
-	defer delete(vs_source)
-	if !vs_success { 
-		fmt.printf("Error reading default_vs.glsl\n")
-		assert(false)
-	}
-	shader_ids[0], compile_shader_ok = gl.compile_shader_from_source(string(vs_source), gl.Shader_Type.VERTEX_SHADER)
-	if !compile_shader_ok {
-		assert(false)
-	}
-
-	fs_source, fs_success := os.read_entire_file("shader/default_fs.glsl")
-	defer delete(fs_source)
-	if !fs_success { 
-		fmt.printf("Error reading default_vs.glsl\n")
-		assert(false)
-	}
-	shader_ids[1], compile_shader_ok = gl.compile_shader_from_source(string(fs_source), gl.Shader_Type.FRAGMENT_SHADER)
-	if !compile_shader_ok {
-		assert(false)
-	}
-
-	shader_program, shader_program_ok := gl.create_and_link_program(shader_ids[:])
-	if !shader_program_ok {
-		assert(false)
-	}
-	GRenderer.shader = shader_program
-
-	for shader in shader_ids {
-		gl.DetachShader(shader_program, shader)
-		gl.DeleteShader(shader)
-	}
-
-	// Default VAO
 	{
-		gl.GenVertexArrays(1, &GRenderer.vao)
-		gl.BindVertexArray(GRenderer.vao)
+		// Create program
+		vs_source, vs_success := os.read_entire_file("shader/default_vs.glsl")
+		defer delete(vs_source)
+		if !vs_success { 
+			fmt.printf("Error reading default_vs.glsl\n")
+			assert(false)
+		}
+		shader_ids[0], compile_shader_ok = gl.compile_shader_from_source(string(vs_source), gl.Shader_Type.VERTEX_SHADER)
+		if !compile_shader_ok {
+			assert(false)
+		}
+
+		fs_source, fs_success := os.read_entire_file("shader/default_fs.glsl")
+		defer delete(fs_source)
+		if !fs_success { 
+			fmt.printf("Error reading default_vs.glsl\n")
+			assert(false)
+		}
+		shader_ids[1], compile_shader_ok = gl.compile_shader_from_source(string(fs_source), gl.Shader_Type.FRAGMENT_SHADER)
+		if !compile_shader_ok {
+			assert(false)
+		}
+
+		shader_program, shader_program_ok := gl.create_and_link_program(shader_ids[:])
+		if !shader_program_ok {
+			assert(false)
+		}
+		shader = shader_program
+
+		gl.DetachShader(shader_program, shader_ids[0])
+		gl.DeleteShader(shader_ids[0])
+		gl.DetachShader(shader_program, shader_ids[1])
+		gl.DeleteShader(shader_ids[1])
 	}
 
-	// Default VBO
+	// Default shader 
 	{
-		gl.GenBuffers(1, &GRenderer.vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
+		// VAO
+		gl.GenVertexArrays(1, &vao)
+		gl.BindVertexArray(vao)
+
+		// VBO
+		gl.GenBuffers(1, &vbo)
+		gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 		gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * MAX_VERTICES, nil, gl.DYNAMIC_DRAW)
-	
+
 		gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
 		gl.EnableVertexAttribArray(0)
 		gl.VertexAttribPointer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
@@ -93,22 +110,55 @@ renderer_init :: proc () {
 		gl.EnableVertexAttribArray(2)
 		gl.VertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, texture))
 		gl.EnableVertexAttribArray(3)
+
+		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+		gl.BindVertexArray(0)
+
+		vertices = make([dynamic]Vertex, 0)
+		reserve(&vertices, MAX_VERTICES)
+		textures = make([dynamic]u32, 0)
+		reserve(&textures, MAX_TEXTURES)
 	}
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
-	gl.BindVertexArray(0)
-
-	gl.UseProgram(GRenderer.shader)
+	// MSAA
 	{
-		textures := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
-		renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures))
+		gl.GenFramebuffers(1, &msaa_fbo)
+		gl.GenTextures(1, &msaa_texture_color_buffer_multisampled)
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, msaa_texture_color_buffer_multisampled)
+		gl.TexImage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, gl.RGB, AppState.window_width, AppState.window_height, gl.TRUE)
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, 0)
+
+		gl.GenRenderbuffers(1, &msaa_rbo)
+		gl.BindRenderbuffer(gl.RENDERBUFFER, msaa_rbo)
+		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, MSAA_SAMPLES, gl.DEPTH24_STENCIL8, AppState.window_width, AppState.window_height)
+		gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
+
+		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, msaa_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, msaa_texture_color_buffer_multisampled, 0)
+		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, msaa_rbo)
+
+		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
+		if status!= gl.FRAMEBUFFER_COMPLETE {
+			fmt.printf("MSAA RBO is not complete. Statud: %v\n", status)
+			assert(false)
+		}
 	}
+
+	// Post processing
+	{
+		gl.GenFramebuffers(1, &post_processing_fbo)
+	}
+
+	// Screen shader
+	{
+
+	}
+
+	gl.UseProgram(shader)
+	textures_ids := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
+	renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures_ids))
 	gl.UseProgram(0)
 
-	GRenderer.vertices = make([dynamic]Vertex, 0)
-	reserve(&GRenderer.vertices, MAX_VERTICES)
-	GRenderer.textures = make([dynamic]u32, 0)
-	reserve(&GRenderer.textures, MAX_TEXTURES)
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
