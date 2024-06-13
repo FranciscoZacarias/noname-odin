@@ -72,7 +72,9 @@ main :: proc () {
 	AppState = {
 		time       = 0,
 		view       = lm.identity(lm.mat4),
-		projection = lm.identity(lm.mat4)
+		projection = lm.identity(lm.mat4),
+		window_width  = WindowWidth,
+		window_height = WindowHeight
 	}
 
 	renderer_init()
