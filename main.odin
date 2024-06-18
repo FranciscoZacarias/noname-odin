@@ -41,7 +41,7 @@ main :: proc () {
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 6)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
-	window := glfw.CreateWindow(WindowWidth, WindowHeight, "Odinner", nil, nil)
+	window := glfw.CreateWindow(WindowWidth, WindowHeight, "noname-odin", nil, nil)
 	if window == nil {
 		fmt.eprintln("GLFW has failed to load the window.")
 		return

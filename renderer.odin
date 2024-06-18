@@ -50,8 +50,6 @@ Renderer :: struct {
 GRenderer: Renderer
 
 renderer_init :: proc () {
-	shader_ids := [2]u32{}
-	compile_shader_ok: bool
 
 	// Default program
 	{
@@ -61,8 +59,8 @@ renderer_init :: proc () {
 			fmt.printf("Error reading default_vs.glsl\n")
 			assert(false)
 		}
-		shader_ids[0], compile_shader_ok = gl.compile_shader_from_source(string(vs_source), gl.Shader_Type.VERTEX_SHADER)
-		if !compile_shader_ok {
+		vs_id, vs_ok := gl.compile_shader_from_source(string(vs_source), gl.Shader_Type.VERTEX_SHADER)
+		if !vs_ok {
 			assert(false)
 		}
 
@@ -72,21 +70,21 @@ renderer_init :: proc () {
 			fmt.printf("Error reading default_fs.glsl\n")
 			assert(false)
 		}
-		shader_ids[1], compile_shader_ok = gl.compile_shader_from_source(string(fs_source), gl.Shader_Type.FRAGMENT_SHADER)
-		if !compile_shader_ok {
+		fs_id, fs_ok := gl.compile_shader_from_source(string(fs_source), gl.Shader_Type.FRAGMENT_SHADER)
+		if !fs_ok {
 			assert(false)
 		}
 
-		shader_program, shader_program_ok := gl.create_and_link_program(shader_ids[:])
+		shader_program, shader_program_ok := gl.create_and_link_program([]u32{vs_id, fs_id})
 		if !shader_program_ok {
 			assert(false)
 		}
 		GRenderer.shader = shader_program
 
-		gl.DetachShader(shader_program, shader_ids[0])
-		gl.DeleteShader(shader_ids[0])
-		gl.DetachShader(shader_program, shader_ids[1])
-		gl.DeleteShader(shader_ids[1])
+		gl.DetachShader(shader_program, vs_id)
+		gl.DeleteShader(vs_id)
+		gl.DetachShader(shader_program, fs_id)
+		gl.DeleteShader(fs_id)
 	}
 
 	// Default shader 
@@ -166,38 +164,38 @@ renderer_init :: proc () {
 
 	// Screen program
 	{
-		vs_source, vs_success := os.read_entire_file("shader/screen_vs.glsl")
-		defer delete(vs_source)
+		screen_vs_source, vs_success := os.read_entire_file("shader/screen_vs.glsl")
+		defer delete(screen_vs_source)
 		if !vs_success { 
 			fmt.printf("Error reading screen_vs.glsl\n")
 			assert(false)
 		}
-		shader_ids[0], compile_shader_ok = gl.compile_shader_from_source(string(vs_source), gl.Shader_Type.VERTEX_SHADER)
-		if !compile_shader_ok {
+		vs_id, vs_ok := gl.compile_shader_from_source(string(screen_vs_source), gl.Shader_Type.VERTEX_SHADER)
+		if !vs_ok {
 			assert(false)
 		}
 
-		fs_source, fs_success := os.read_entire_file("shader/screen_fs.glsl")
-		defer delete(fs_source)
+		screen_fs_source, fs_success := os.read_entire_file("shader/screen_fs.glsl")
+		defer delete(screen_fs_source)
 		if !fs_success { 
-			fmt.printf("Error reading screen_vs.glsl\n")
+			fmt.printf("Error reading screen_fs.glsl\n")
 			assert(false)
 		}
-		shader_ids[1], compile_shader_ok = gl.compile_shader_from_source(string(fs_source), gl.Shader_Type.FRAGMENT_SHADER)
-		if !compile_shader_ok {
+		fs_id, fs_ok := gl.compile_shader_from_source(string(screen_fs_source), gl.Shader_Type.FRAGMENT_SHADER)
+		if !fs_ok {
 			assert(false)
 		}
 
-		screen_shader, screen_shader_ok := gl.create_and_link_program(shader_ids[:])
+		screen_shader, screen_shader_ok := gl.create_and_link_program([]u32{vs_id, fs_id})
 		if !screen_shader_ok {
 			assert(false)
 		}
-		GRenderer.shader = screen_shader
+		GRenderer.screen_shader = screen_shader
 
-		gl.DetachShader(screen_shader, shader_ids[0])
-		gl.DeleteShader(shader_ids[0])
-		gl.DetachShader(screen_shader, shader_ids[1])
-		gl.DeleteShader(shader_ids[1])
+		gl.DetachShader(screen_shader, vs_id)
+		gl.DeleteShader(vs_id)
+		gl.DetachShader(screen_shader, fs_id)
+		gl.DeleteShader(fs_id)
 	}
 
 	// Screen shader
@@ -223,17 +221,15 @@ renderer_init :: proc () {
 		gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2*size_of(f32), 0)
 		gl.EnableVertexAttribArray(0)
 
-		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 		gl.BindVertexArray(0)
+		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	}
 
 	// Set texture ids
-	{
-		gl.UseProgram(GRenderer.shader)
-		textures_ids := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
-		renderer_set_uniform_i32v("u_texture", 8, raw_data(&textures_ids))
-		gl.UseProgram(0)
-	}
+	gl.UseProgram(GRenderer.shader)
+	textures_ids := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
+	renderer_set_uniform_i32v(GRenderer.shader, "u_texture", 8, raw_data(&textures_ids))
+	gl.UseProgram(0)
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -270,11 +266,11 @@ renderer_texture_load :: proc (path: string) -> u32 {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 	
 	if (channels == 3) {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGB, gl.UNSIGNED_BYTE, data)
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGB,  gl.UNSIGNED_BYTE, data)
 	} else if (channels == 4) {
 		gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
 	}
-	
+
 	return id
 }
 
@@ -284,15 +280,14 @@ renderer_begin_frame :: proc () {
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
-
-	gl.UseProgram(GRenderer.shader)
 }
 
 renderer_end_frame :: proc () {
+	gl.UseProgram(GRenderer.shader)
 	model := lm.identity(lm.mat4)
-	renderer_set_uniform_mat4fv("u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
-	renderer_set_uniform_mat4fv("u_view",       &AppState.view)
-	renderer_set_uniform_mat4fv("u_projection", &AppState.projection)
+	renderer_set_uniform_mat4fv(GRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
+	renderer_set_uniform_mat4fv(GRenderer.shader, "u_view",       &AppState.view)
+	renderer_set_uniform_mat4fv(GRenderer.shader, "u_projection", &AppState.projection)
 	
 	for i: u32 = 0; i < u32(len(GRenderer.textures)); i += 1 {
 		gl.ActiveTexture(gl.TEXTURE0 + i)
@@ -310,7 +305,7 @@ renderer_end_frame :: proc () {
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.post_processing_fbo)
 	gl.BlitFramebuffer(0, 0, AppState.window_width, AppState.window_height, 0, 0, AppState.window_width, AppState.window_height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 
-	//gl.BindFramebuffer(gl.READ_FRAMEBUFFER, 0)
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, 0)
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, 0)
 	
 	gl.ClearColor(1.0, 1.0, 1.0, 1.0)
@@ -321,8 +316,8 @@ renderer_end_frame :: proc () {
 	gl.BindVertexArray(GRenderer.screen_vao)
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
-	renderer_set_uniform_i32("u_window_width", AppState.window_width)
-	renderer_set_uniform_i32("u_window_height", AppState.window_height)
+	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_width", AppState.window_width)
+	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_height", AppState.window_height)
 	gl.DrawArrays(gl.TRIANGLES, 0, 6)
 
 	gl.UseProgram(0)
@@ -378,8 +373,8 @@ renderer_update_window_dimensions :: proc (width: i32, height: i32) {
 	AppState.window_height = height
 }
 
-renderer_set_uniform_mat4fv :: proc (uniform: string, mat: ^lm.mat4) {
-	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {
+	uniform_location: i32 = gl.GetUniformLocation(program, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find Mat4fv Uniform :: mat4 '%v'\n", uniform)
 		return
@@ -387,8 +382,8 @@ renderer_set_uniform_mat4fv :: proc (uniform: string, mat: ^lm.mat4) {
 	gl.UniformMatrix4fv(uniform_location, 1, false, raw_data(mat))
 }
 
-renderer_set_uniform_f32 :: proc (uniform: string, f: f32) {
-	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_f32 :: proc (program: u32, uniform: string, f: f32) {
+	uniform_location: i32 = gl.GetUniformLocation(program, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find f32 Uniform :: float '%v'\n", uniform)
 		return
@@ -396,8 +391,8 @@ renderer_set_uniform_f32 :: proc (uniform: string, f: f32) {
 	gl.Uniform1f(uniform_location, f)
 }
 
-renderer_set_uniform_i32v :: proc (uniform: string, count: i32, i: ^i32) {
-	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_i32v :: proc (program: u32, uniform: string, count: i32, i: ^i32) {
+	uniform_location: i32 = gl.GetUniformLocation(program, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find [%v]i32 Uniform :: '%v'\n", count, uniform)
 		return
@@ -405,8 +400,8 @@ renderer_set_uniform_i32v :: proc (uniform: string, count: i32, i: ^i32) {
 	gl.Uniform1iv(uniform_location, count, i)
 }
 
-renderer_set_uniform_i32 :: proc (uniform: string, i: i32) {
-	uniform_location: i32 = gl.GetUniformLocation(GRenderer.shader, strings.clone_to_cstring(uniform))
+renderer_set_uniform_i32 :: proc (program: u32, uniform: string, i: i32) {
+	uniform_location: i32 = gl.GetUniformLocation(program, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
 		fmt.printf("Unable to find i32 Uniform :: '%v'\n", uniform)
 		return
