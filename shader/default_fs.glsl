@@ -9,5 +9,5 @@ in float vertex_texture;
 uniform sampler2D u_texture[8];
 
 void main() {
-  pixel_color = vertex_color * texture(u_texture[int(vertex_texture)], vertex_uv);
+  pixel_color = vertex_color; // * texture(u_texture[int(vertex_texture)], vertex_uv);
 }

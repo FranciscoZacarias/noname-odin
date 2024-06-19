@@ -12,7 +12,7 @@ WindowWidth  : i32 : 400
 WindowHeight : i32 : 400
 
 Application_State :: struct {
-	time: f32,
+	time:       f32,
 	view:       lm.mat4,
 	projection: lm.mat4,
 
@@ -58,9 +58,11 @@ main :: proc () {
 	glfw.SetKeyCallback(window, key_callback)
 
 	size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
-		gl.Viewport(0, 0, width, height)
 		context = runtime.default_context()
-		renderer_update_window_dimensions(width, height)
+		gl.Viewport(0, 0, width, height)
+		AppState.window_width  = width
+		AppState.window_height = height
+		renderer_on_resize(width, height)
 	}
 	glfw.SetFramebufferSizeCallback(window, size_callback)
 
@@ -77,7 +79,7 @@ main :: proc () {
 		window_height = WindowHeight
 	}
 
-	renderer_init()
+	renderer_init(AppState.window_width, AppState.window_height)
 	texture: u32 = renderer_texture_load("res/kakashi.png")
 	q0 := Quad{lm.vec3{-0.25, -0.25, 0.0}, 0.5, 0.5}
 	renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, texture)
@@ -87,7 +89,7 @@ main :: proc () {
 		
 		renderer_begin_frame()
 
-		renderer_end_frame()
+		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()

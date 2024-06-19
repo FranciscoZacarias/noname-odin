@@ -49,7 +49,7 @@ Renderer :: struct {
 
 GRenderer: Renderer
 
-renderer_init :: proc () {
+renderer_init :: proc (window_width: i32, window_height: i32) {
 
 	// Default program
 	{
@@ -121,12 +121,12 @@ renderer_init :: proc () {
 		gl.GenFramebuffers(1, &GRenderer.msaa_fbo)
 		gl.GenTextures(1, &GRenderer.msaa_texture_color_buffer_multisampled)
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled)
-		gl.TexImage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, gl.RGB, AppState.window_width, AppState.window_height, gl.TRUE)
+		gl.TexImage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, gl.RGB, window_width, window_height, gl.TRUE)
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, 0)
 
 		gl.GenRenderbuffers(1, &GRenderer.msaa_rbo)
 		gl.BindRenderbuffer(gl.RENDERBUFFER, GRenderer.msaa_rbo)
-		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, MSAA_SAMPLES, gl.DEPTH24_STENCIL8, AppState.window_width, AppState.window_height)
+		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, MSAA_SAMPLES, gl.DEPTH24_STENCIL8, window_width, window_height)
 		gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
 
 		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.msaa_fbo)
@@ -145,7 +145,7 @@ renderer_init :: proc () {
 		gl.GenFramebuffers(1, &GRenderer.post_processing_fbo)
 		gl.GenTextures(1, &GRenderer.screen_texture)
 		gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
-		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, AppState.window_width, AppState.window_height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
+		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, window_width, window_height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
@@ -235,6 +235,59 @@ renderer_init :: proc () {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
+renderer_on_resize :: proc(window_width: i32, window_height: i32) {
+	// Rebuild MSAA buffers
+	{
+		gl.BindFramebuffer(gl.FRAMEBUFFER, GRenderer.msaa_fbo)
+		gl.DeleteTextures(1, &GRenderer.msaa_texture_color_buffer_multisampled)
+		gl.DeleteRenderbuffers(1, &GRenderer.msaa_rbo)
+		gl.DeleteFramebuffers(1, &GRenderer.msaa_fbo);
+
+		gl.GenFramebuffers(1, &GRenderer.msaa_fbo)
+		gl.GenTextures(1, &GRenderer.msaa_texture_color_buffer_multisampled)
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled)
+		gl.TexImage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, gl.RGB, window_width, window_height, gl.TRUE)
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, 0)
+
+		gl.GenRenderbuffers(1, &GRenderer.msaa_rbo)
+		gl.BindRenderbuffer(gl.RENDERBUFFER, GRenderer.msaa_rbo)
+		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, MSAA_SAMPLES, gl.DEPTH24_STENCIL8, window_width, window_height)
+		gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
+
+		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.msaa_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled, 0)
+		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, GRenderer.msaa_rbo)
+
+		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
+		if status != gl.FRAMEBUFFER_COMPLETE {
+			fmt.printf("MSAA FBO is not complete. Status: %v\n", status)
+			assert(false)
+		}
+	}
+
+	// Rebuild Post processing and screen buffers
+	{
+		gl.GenFramebuffers(1, &GRenderer.post_processing_fbo)
+		gl.GenTextures(1, &GRenderer.screen_texture)
+		gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
+		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, window_width, window_height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+		gl.BindFramebuffer(gl.FRAMEBUFFER, GRenderer.post_processing_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, GRenderer.screen_texture, 0)
+
+		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
+		if status!= gl.FRAMEBUFFER_COMPLETE {
+			fmt.printf("Post processing FBO is not complete. Status: %v\n", status)
+			assert(false)
+		}
+
+		gl.BindTexture(gl.TEXTURE_2D, 0)
+		gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+	}
+}
+
 renderer_texture_load :: proc (path: string) -> u32 {
 	exists := os.exists(path)
 	if !exists {
@@ -282,12 +335,14 @@ renderer_begin_frame :: proc () {
   gl.Enable(gl.DEPTH_TEST)
 }
 
-renderer_end_frame :: proc () {
+renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
 	gl.UseProgram(GRenderer.shader)
-	model := lm.identity(lm.mat4)
+	model      := lm.identity(lm.mat4)
+	view       := view
+	projection := projection
 	renderer_set_uniform_mat4fv(GRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
-	renderer_set_uniform_mat4fv(GRenderer.shader, "u_view",       &AppState.view)
-	renderer_set_uniform_mat4fv(GRenderer.shader, "u_projection", &AppState.projection)
+	renderer_set_uniform_mat4fv(GRenderer.shader, "u_view",       &view)
+	renderer_set_uniform_mat4fv(GRenderer.shader, "u_projection", &projection)
 	
 	for i: u32 = 0; i < u32(len(GRenderer.textures)); i += 1 {
 		gl.ActiveTexture(gl.TEXTURE0 + i)
@@ -303,7 +358,7 @@ renderer_end_frame :: proc () {
 	// Copy from MSAA FBO to Post Processing FBO
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, GRenderer.msaa_fbo)
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.post_processing_fbo)
-	gl.BlitFramebuffer(0, 0, AppState.window_width, AppState.window_height, 0, 0, AppState.window_width, AppState.window_height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+	gl.BlitFramebuffer(0, 0, window_width, window_height, 0, 0, window_width, window_height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, 0)
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, 0)
@@ -316,8 +371,10 @@ renderer_end_frame :: proc () {
 	gl.BindVertexArray(GRenderer.screen_vao)
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
-	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_width", AppState.window_width)
-	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_height", AppState.window_height)
+	fmt.printf("u_window_width: %v\n", window_width)
+	fmt.printf("u_window_height: %v\n", window_height)
+	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_width", window_width)
+	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_height", window_height)
 	gl.DrawArrays(gl.TRIANGLES, 0, 6)
 
 	gl.UseProgram(0)
@@ -368,9 +425,7 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 }
 
 renderer_update_window_dimensions :: proc (width: i32, height: i32) {
-	gl.UseProgram(GRenderer.shader)
-	AppState.window_width  = width
-	AppState.window_height = height
+	
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {
