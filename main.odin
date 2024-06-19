@@ -13,6 +13,9 @@ WindowHeight : i32 : 400
 
 Application_State :: struct {
 	time:       f32,
+	delta_time: f32,
+	last_time:  f32,
+
 	view:       lm.mat4,
 	projection: lm.mat4,
 
@@ -85,13 +88,20 @@ main :: proc () {
 	renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, texture)
 
 	for !glfw.WindowShouldClose(window) {
-		AppState.time = f32(glfw.GetTime())
-		
 		renderer_begin_frame()
-
+		
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
-
+		
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
 	}
+}
+		
+application_tick :: proc() {
+	AppState.time       = f32(glfw.GetTime())
+  AppState.delta_time = AppState.time - AppState.last_time
+  AppState.last_time  = AppState.time
+
+	aspect_ratio: i32 = AppState.window_width / AppState.window_height
+	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(aspect_ratio), 0.1, 100.0)
 }

@@ -371,8 +371,6 @@ renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i3
 	gl.BindVertexArray(GRenderer.screen_vao)
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
-	fmt.printf("u_window_width: %v\n", window_width)
-	fmt.printf("u_window_height: %v\n", window_height)
 	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_width", window_width)
 	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_height", window_height)
 	gl.DrawArrays(gl.TRIANGLES, 0, 6)
