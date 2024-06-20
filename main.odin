@@ -76,8 +76,8 @@ main :: proc () {
 
 	AppState = {
 		time       = 0,
-		view       = lm.identity(lm.mat4),
-		projection = lm.identity(lm.mat4),
+		projection = lm.mat4Perspective(lm.radians(f32(45)), f32(WindowWidth / WindowHeight), 0.1, 100.0),
+		view       = lm.mat4LookAt(lm.vec3{0.0, 0.0, 3.0}, lm.vec3{0.0, 0.0, 3.0} + lm.vec3{0.0, 0.0, -1.0}, lm.vec3{0.0, 1.0, 0.0}),
 		window_width  = WindowWidth,
 		window_height = WindowHeight
 	}
@@ -88,20 +88,22 @@ main :: proc () {
 	renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, texture)
 
 	for !glfw.WindowShouldClose(window) {
+		application_tick()
+
 		renderer_begin_frame()
-		
+
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
 	}
 }
-		
+
 application_tick :: proc() {
 	AppState.time       = f32(glfw.GetTime())
   AppState.delta_time = AppState.time - AppState.last_time
   AppState.last_time  = AppState.time
 
-	aspect_ratio: i32 = AppState.window_width / AppState.window_height
-	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(aspect_ratio), 0.1, 100.0)
+	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(AppState.window_width / AppState.window_height), 0.1, 100.0)
+	AppState.view       = lm.mat4LookAt(lm.vec3{0.0, 0.0, 3.0}, lm.vec3{0.0, 0.0, 3.0} + lm.vec3{0.0, 0.0, -1.0}, lm.vec3{0.0, 1.0, 0.0})
 }
