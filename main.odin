@@ -29,6 +29,14 @@ Application_State :: struct {
 
 AppState: Application_State
 
+Square :: struct {
+	quad:    Quad,
+	color:   lm.vec4,
+	texture: u32
+}
+
+Squares: [dynamic]Square;
+
 main :: proc () {
 	glfw.SetErrorCallback(error_callback)
 
@@ -66,14 +74,15 @@ main :: proc () {
 	}
 
 	renderer_init(AppState.window_width, AppState.window_height)
-	texture: u32 = renderer_texture_load("res/kakashi.png")
-	q0 := Quad{lm.vec3{-0.25, -0.25, 0.0}, 0.5, 0.5}
-	renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, texture)
-
+	kakashi_eye: u32 = renderer_texture_load("res/kakashi.png")
+	
 	for !glfw.WindowShouldClose(window) {
 		application_tick()
 
 		renderer_begin_frame()
+
+		q0 := Quad{lm.vec3{-0.25, -0.25, 0.0}, 0.5, 0.5}
+		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
 
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		

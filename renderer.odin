@@ -24,7 +24,7 @@ Vertex :: struct {
 	position: lm.vec3,
 	color:    lm.vec4,
 	uv:       lm.vec2,
-	texture:  i32
+	texture:  u32
 }
 
 Renderer :: struct {
@@ -47,7 +47,7 @@ Renderer :: struct {
 	screen_vbo: u32,
 }
 
-GRenderer: Renderer
+AppRenderer: Renderer
 
 renderer_init :: proc (window_width: i32, window_height: i32) {
 
@@ -79,7 +79,7 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 		if !shader_program_ok {
 			assert(false)
 		}
-		GRenderer.shader = shader_program
+		AppRenderer.shader = shader_program
 
 		gl.DetachShader(shader_program, vs_id)
 		gl.DeleteShader(vs_id)
@@ -90,12 +90,12 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 	// Default shader 
 	{
 		// VAO
-		gl.GenVertexArrays(1, &GRenderer.vao)
-		gl.BindVertexArray(GRenderer.vao)
+		gl.GenVertexArrays(1, &AppRenderer.vao)
+		gl.BindVertexArray(AppRenderer.vao)
 
 		// VBO
-		gl.GenBuffers(1, &GRenderer.vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
+		gl.GenBuffers(1, &AppRenderer.vbo)
+		gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo)
 		gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * MAX_VERTICES, nil, gl.DYNAMIC_DRAW)
 
 		gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
@@ -110,28 +110,28 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 		gl.BindVertexArray(0)
 
-		GRenderer.vertices = make([dynamic]Vertex, 0)
-		reserve(&GRenderer.vertices, MAX_VERTICES)
-		GRenderer.textures = make([dynamic]u32, 0)
-		reserve(&GRenderer.textures, MAX_TEXTURES)
+		AppRenderer.vertices = make([dynamic]Vertex, 0)
+		reserve(&AppRenderer.vertices, MAX_VERTICES)
+		AppRenderer.textures = make([dynamic]u32, 0)
+		reserve(&AppRenderer.textures, MAX_TEXTURES)
 	}
 
 	// MSAA
 	{
-		gl.GenFramebuffers(1, &GRenderer.msaa_fbo)
-		gl.GenTextures(1, &GRenderer.msaa_texture_color_buffer_multisampled)
-		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled)
+		gl.GenFramebuffers(1, &AppRenderer.msaa_fbo)
+		gl.GenTextures(1, &AppRenderer.msaa_texture_color_buffer_multisampled)
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, AppRenderer.msaa_texture_color_buffer_multisampled)
 		gl.TexImage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, gl.RGB, window_width, window_height, gl.TRUE)
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, 0)
 
-		gl.GenRenderbuffers(1, &GRenderer.msaa_rbo)
-		gl.BindRenderbuffer(gl.RENDERBUFFER, GRenderer.msaa_rbo)
+		gl.GenRenderbuffers(1, &AppRenderer.msaa_rbo)
+		gl.BindRenderbuffer(gl.RENDERBUFFER, AppRenderer.msaa_rbo)
 		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, MSAA_SAMPLES, gl.DEPTH24_STENCIL8, window_width, window_height)
 		gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
 
-		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.msaa_fbo)
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled, 0)
-		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, GRenderer.msaa_rbo)
+		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, AppRenderer.msaa_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, AppRenderer.msaa_texture_color_buffer_multisampled, 0)
+		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, AppRenderer.msaa_rbo)
 
 		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
 		if status != gl.FRAMEBUFFER_COMPLETE {
@@ -142,15 +142,15 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 
 	// Post processing
 	{
-		gl.GenFramebuffers(1, &GRenderer.post_processing_fbo)
-		gl.GenTextures(1, &GRenderer.screen_texture)
-		gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
+		gl.GenFramebuffers(1, &AppRenderer.post_processing_fbo)
+		gl.GenTextures(1, &AppRenderer.screen_texture)
+		gl.BindTexture(gl.TEXTURE_2D, AppRenderer.screen_texture)
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, window_width, window_height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-		gl.BindFramebuffer(gl.FRAMEBUFFER, GRenderer.post_processing_fbo)
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, GRenderer.screen_texture, 0)
+		gl.BindFramebuffer(gl.FRAMEBUFFER, AppRenderer.post_processing_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, AppRenderer.screen_texture, 0)
 
 		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
 		if status!= gl.FRAMEBUFFER_COMPLETE {
@@ -190,7 +190,7 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 		if !screen_shader_ok {
 			assert(false)
 		}
-		GRenderer.screen_shader = screen_shader
+		AppRenderer.screen_shader = screen_shader
 
 		gl.DetachShader(screen_shader, vs_id)
 		gl.DeleteShader(vs_id)
@@ -210,12 +210,12 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 		}
 		
 		// Screen VAO
-		gl.GenVertexArrays(1, &GRenderer.screen_vao)
-		gl.BindVertexArray(GRenderer.screen_vao)
+		gl.GenVertexArrays(1, &AppRenderer.screen_vao)
+		gl.BindVertexArray(AppRenderer.screen_vao)
 
 		// Screen VBO
-		gl.GenBuffers(1, &GRenderer.screen_vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.screen_vbo)
+		gl.GenBuffers(1, &AppRenderer.screen_vbo)
+		gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.screen_vbo)
 		gl.BufferData(gl.ARRAY_BUFFER, size_of(screen_vertices), &screen_vertices, gl.STATIC_DRAW)
 
 		gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2*size_of(f32), 0)
@@ -226,9 +226,9 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 	}
 
 	// Set texture ids
-	gl.UseProgram(GRenderer.shader)
+	gl.UseProgram(AppRenderer.shader)
 	textures_ids := [8]i32{ 0, 1, 2, 3, 4, 5, 6, 7 }
-	renderer_set_uniform_i32v(GRenderer.shader, "u_texture", 8, raw_data(&textures_ids))
+	renderer_set_uniform_i32v(AppRenderer.shader, "u_texture", 8, raw_data(&textures_ids))
 	gl.UseProgram(0)
 
 	gl.Enable(gl.BLEND)
@@ -238,25 +238,25 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 renderer_on_resize :: proc(window_width: i32, window_height: i32) {
 	// Rebuild MSAA buffers
 	{
-		gl.BindFramebuffer(gl.FRAMEBUFFER, GRenderer.msaa_fbo)
-		gl.DeleteTextures(1, &GRenderer.msaa_texture_color_buffer_multisampled)
-		gl.DeleteRenderbuffers(1, &GRenderer.msaa_rbo)
-		gl.DeleteFramebuffers(1, &GRenderer.msaa_fbo);
+		gl.BindFramebuffer(gl.FRAMEBUFFER, AppRenderer.msaa_fbo)
+		gl.DeleteTextures(1, &AppRenderer.msaa_texture_color_buffer_multisampled)
+		gl.DeleteRenderbuffers(1, &AppRenderer.msaa_rbo)
+		gl.DeleteFramebuffers(1, &AppRenderer.msaa_fbo);
 
-		gl.GenFramebuffers(1, &GRenderer.msaa_fbo)
-		gl.GenTextures(1, &GRenderer.msaa_texture_color_buffer_multisampled)
-		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled)
+		gl.GenFramebuffers(1, &AppRenderer.msaa_fbo)
+		gl.GenTextures(1, &AppRenderer.msaa_texture_color_buffer_multisampled)
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, AppRenderer.msaa_texture_color_buffer_multisampled)
 		gl.TexImage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, gl.RGB, window_width, window_height, gl.TRUE)
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, 0)
 
-		gl.GenRenderbuffers(1, &GRenderer.msaa_rbo)
-		gl.BindRenderbuffer(gl.RENDERBUFFER, GRenderer.msaa_rbo)
+		gl.GenRenderbuffers(1, &AppRenderer.msaa_rbo)
+		gl.BindRenderbuffer(gl.RENDERBUFFER, AppRenderer.msaa_rbo)
 		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, MSAA_SAMPLES, gl.DEPTH24_STENCIL8, window_width, window_height)
 		gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
 
-		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.msaa_fbo)
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, GRenderer.msaa_texture_color_buffer_multisampled, 0)
-		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, GRenderer.msaa_rbo)
+		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, AppRenderer.msaa_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, AppRenderer.msaa_texture_color_buffer_multisampled, 0)
+		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, AppRenderer.msaa_rbo)
 
 		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
 		if status != gl.FRAMEBUFFER_COMPLETE {
@@ -267,15 +267,15 @@ renderer_on_resize :: proc(window_width: i32, window_height: i32) {
 
 	// Rebuild Post processing and screen buffers
 	{
-		gl.GenFramebuffers(1, &GRenderer.post_processing_fbo)
-		gl.GenTextures(1, &GRenderer.screen_texture)
-		gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
+		gl.GenFramebuffers(1, &AppRenderer.post_processing_fbo)
+		gl.GenTextures(1, &AppRenderer.screen_texture)
+		gl.BindTexture(gl.TEXTURE_2D, AppRenderer.screen_texture)
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, window_width, window_height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-		gl.BindFramebuffer(gl.FRAMEBUFFER, GRenderer.post_processing_fbo)
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, GRenderer.screen_texture, 0)
+		gl.BindFramebuffer(gl.FRAMEBUFFER, AppRenderer.post_processing_fbo)
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, AppRenderer.screen_texture, 0)
 
 		status: u32 = gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
 		if status!= gl.FRAMEBUFFER_COMPLETE {
@@ -288,7 +288,7 @@ renderer_on_resize :: proc(window_width: i32, window_height: i32) {
 	}
 }
 
-renderer_texture_load :: proc (path: string) -> u32 {
+renderer_texture_load :: proc (path: string) -> (texture_id: u32) {
 	exists := os.exists(path)
 	if !exists {
 		fmt.printf("Texture '%v' doesn't exist.\n", path)
@@ -300,9 +300,8 @@ renderer_texture_load :: proc (path: string) -> u32 {
 	data := stb_img.load(strings.clone_to_cstring(path), &width, &height, &channels, 0)
 	defer stb_img.image_free(data)
 
-	id: u32
-	gl.GenTextures(1, &id)    
-	gl.BindTexture(gl.TEXTURE_2D, id)
+	gl.GenTextures(1, &texture_id)    
+	gl.BindTexture(gl.TEXTURE_2D, texture_id)
 
 	if channels == 3 {
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB8, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, nil)
@@ -324,40 +323,44 @@ renderer_texture_load :: proc (path: string) -> u32 {
 		gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
 	}
 
-	return id
+	append(&AppRenderer.textures, texture_id)
+
+	return texture_id
 }
 
 renderer_begin_frame :: proc () {
-	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.msaa_fbo)
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, AppRenderer.msaa_fbo)
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
+
+	clear(&AppRenderer.vertices)
 }
 
 renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
-	gl.UseProgram(GRenderer.shader)
+	gl.UseProgram(AppRenderer.shader)
 	model      := lm.identity(lm.mat4)
 	view       := view
 	projection := projection
-	renderer_set_uniform_mat4fv(GRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
-	renderer_set_uniform_mat4fv(GRenderer.shader, "u_view",       &view)
-	renderer_set_uniform_mat4fv(GRenderer.shader, "u_projection", &projection)
+	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
+	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_view",       &view)
+	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_projection", &projection)
 	
-	for i: u32 = 0; i < u32(len(GRenderer.textures)); i += 1 {
+	for i: u32 = 0; i < u32(len(AppRenderer.textures)); i += 1 {
 		gl.ActiveTexture(gl.TEXTURE0 + i)
-		gl.BindTexture(gl.TEXTURE_2D, GRenderer.textures[i])
+		gl.BindTexture(gl.TEXTURE_2D, AppRenderer.textures[i])
 	}
 
 	// Draw to MSAA FBO
-	gl.BindVertexArray(GRenderer.vao)
-	gl.BindBuffer(gl.ARRAY_BUFFER, GRenderer.vbo)
-	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(GRenderer.vertices) * 3 * size_of(Vertex), raw_data(GRenderer.vertices[:]))
-	gl.DrawArrays(gl.TRIANGLES, 0, i32(len(GRenderer.vertices)) * 3)
+	gl.BindVertexArray(AppRenderer.vao)
+	gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo)
+	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(AppRenderer.vertices) * 3 * size_of(Vertex), raw_data(AppRenderer.vertices[:]))
+	gl.DrawArrays(gl.TRIANGLES, 0, i32(len(AppRenderer.vertices)) * 3)
 
 	// Copy from MSAA FBO to Post Processing FBO
-	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, GRenderer.msaa_fbo)
-	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, GRenderer.post_processing_fbo)
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, AppRenderer.msaa_fbo)
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, AppRenderer.post_processing_fbo)
 	gl.BlitFramebuffer(0, 0, window_width, window_height, 0, 0, window_width, window_height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, 0)
@@ -367,12 +370,12 @@ renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i3
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.Disable(gl.DEPTH_TEST)
 
-	gl.UseProgram(GRenderer.screen_shader)
-	gl.BindVertexArray(GRenderer.screen_vao)
+	gl.UseProgram(AppRenderer.screen_shader)
+	gl.BindVertexArray(AppRenderer.screen_vao)
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, GRenderer.screen_texture)
-	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_width", window_width)
-	renderer_set_uniform_i32(GRenderer.screen_shader, "u_window_height", window_height)
+	gl.BindTexture(gl.TEXTURE_2D, AppRenderer.screen_texture)
+	renderer_set_uniform_i32(AppRenderer.screen_shader, "u_window_width", window_width)
+	renderer_set_uniform_i32(AppRenderer.screen_shader, "u_window_height", window_height)
 	gl.DrawArrays(gl.TRIANGLES, 0, 6)
 
 	gl.UseProgram(0)
@@ -384,33 +387,12 @@ renderer_push_triangle :: proc (a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.
 																b_position: lm.vec3, b_uv: lm.vec2, b_color: lm.vec4,
 																c_position: lm.vec3, c_uv: lm.vec2, c_color: lm.vec4,
 																texture: u32) {
-	texture_index: i32 = -1
-	for i in 0..<len(GRenderer.textures) {
-		if GRenderer.textures[i] == texture {
-			texture_index = i32(i)
-			break
-		}
-	}
-	
-	// TODO(fz): If we add more textures than MAX_TEXTURES, we still have to handle that.
-	// TODO(fz): This should probably be in renderer_load_texture.
-	// TODO(fz): Do we need to clean them up? Didn't implement it yet because I think now they are kept during the lifetime of the program
-	total_textures := len(GRenderer.textures)
-	if texture_index == -1 && total_textures < MAX_TEXTURES {
-		append(&GRenderer.textures, texture)
-		texture_index = i32(total_textures)
-	}
-	if total_textures >= MAX_TEXTURES {
-		fmt.println("Max textures reached!\n")
-		assert(false)
-	}
-
-	a := Vertex{ a_position, a_color, a_uv, texture_index }
-	append(&GRenderer.vertices, a)
-	b := Vertex{ b_position, b_color, b_uv, texture_index }
-	append(&GRenderer.vertices, b)
-	c := Vertex{ c_position, c_color, c_uv, texture_index }
-	append(&GRenderer.vertices, c)
+	a := Vertex{ a_position, a_color, a_uv, texture }
+	append(&AppRenderer.vertices, a)
+	b := Vertex{ b_position, b_color, b_uv, texture }
+	append(&AppRenderer.vertices, b)
+	c := Vertex{ c_position, c_color, c_uv, texture }
+	append(&AppRenderer.vertices, c)
 }
 
 renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
