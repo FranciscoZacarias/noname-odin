@@ -23,6 +23,8 @@ Application_State :: struct {
 	near_plane:    f32,
 	far_plane:     f32,
 
+	input_state: Input_State,
+
 	window_width:  i32,
 	window_height: i32,
 }
@@ -34,8 +36,6 @@ Square :: struct {
 	color:   lm.vec4,
 	texture: u32
 }
-
-Squares: [dynamic]Square;
 
 main :: proc () {
 	glfw.SetErrorCallback(error_callback)
@@ -61,17 +61,11 @@ main :: proc () {
 	glfw.MakeContextCurrent(window)
 	glfw.SetKeyCallback(window, key_callback)
 	glfw.SetFramebufferSizeCallback(window, size_callback)
+	glfw.SetCursorPosCallback(window, cursor_callback)
+	glfw.SetMouseButtonCallback(window, button_callback)
 	gl.load_up_to(4, 6, set_proc_address) 
 
-	AppState = {
-		camera     = camera_init(),
-		projection = lm.identity(lm.mat4),
-		view       = lm.identity(lm.mat4),
-		near_plane = 0.1,
-		far_plane  = 100.0,
-		window_width  = Window_Width,
-		window_height = Window_Height
-	}
+	AppState = application_init()
 
 	renderer_init(AppState.window_width, AppState.window_height)
 	kakashi_eye: u32 = renderer_texture_load("res/kakashi.png")
@@ -91,6 +85,23 @@ main :: proc () {
 	}
 }
 
+application_init :: proc() -> (app: Application_State) {
+	app.camera     = camera_init()
+	app.projection = lm.identity(lm.mat4)
+	app.view       = lm.identity(lm.mat4)
+	app.near_plane = 0.1
+	app.far_plane  = 100.0
+	app.window_width  = Window_Width
+	app.window_height = Window_Height
+
+	app.input_state.mouse_current.coords.x  = Window_Width /2
+	app.input_state.mouse_current.coords.y  = Window_Height/2
+	app.input_state.mouse_previous.coords.x = Window_Width /2
+	app.input_state.mouse_previous.coords.y = Window_Height/2
+
+	return app
+}
+
 application_tick :: proc() {
 	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(AppState.window_width) / f32(AppState.window_height), AppState.near_plane, AppState.far_plane)
 	AppState.view       = lm.mat4LookAt(AppState.camera.position, AppState.camera.position + AppState.camera.front, AppState.camera.up)
@@ -100,12 +111,48 @@ application_tick :: proc() {
 	AppState.time       = f32(glfw.GetTime())
   AppState.delta_time = AppState.time - AppState.last_time
   AppState.last_time  = AppState.time
+
+	input_update(&AppState.input_state)
 }
 
 key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
 	if key == glfw.KEY_ESCAPE {
 		glfw.SetWindowShouldClose(window, true)
 	}
+
+	if key >= 32 && key <= 248 {
+		is_key_pressed: bool = (action != glfw.RELEASE)
+		if AppState.input_state.keyboard_current.keys[key] != is_key_pressed {
+			AppState.input_state.keyboard_previous.keys[key] = AppState.input_state.keyboard_current.keys[key]
+			AppState.input_state.keyboard_current.keys[key] = is_key_pressed
+
+			context = runtime.default_context()
+			fmt.printf("[Keyboard]\n%v is %v\n\n", key, is_key_pressed)
+		} else {
+			AppState.input_state.keyboard_previous.keys[key] = AppState.input_state.keyboard_current.keys[key]
+			AppState.input_state.keyboard_current.keys[key] = is_key_pressed
+		}
+	}
+}
+
+button_callback :: proc "c" (window: glfw.WindowHandle, button, action, mods: i32) {
+	if button >= 0 && button <= 3 {
+		is_button_pressed: bool = (action != glfw.RELEASE)
+		if AppState.input_state.mouse_current.buttons[button] != is_button_pressed {
+			AppState.input_state.mouse_current.buttons[button] = is_button_pressed
+
+			context = runtime.default_context()
+			fmt.printf("[Button]\n%v is %v\n\n", button, is_button_pressed)
+		}
+	}
+}
+
+cursor_callback :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {
+	AppState.input_state.mouse_current.coords.x = i32(xpos)
+	AppState.input_state.mouse_current.coords.y = i32(ypos)
+
+	context = runtime.default_context()
+	fmt.printf("[Cursor]\n%v, %v\n\n", i32(xpos), i32(ypos))
 }
 
 size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
