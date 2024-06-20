@@ -81,7 +81,6 @@ main :: proc () {
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		
 		glfw.SwapBuffers(window)
-		glfw.PollEvents()
 	}
 }
 
@@ -103,6 +102,10 @@ application_init :: proc() -> (app: Application_State) {
 }
 
 application_tick :: proc() {
+	AppState.input_state.keyboard_previous = AppState.input_state.keyboard_current;
+	AppState.input_state.mouse_previous    = AppState.input_state.mouse_current;
+	glfw.PollEvents()
+
 	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(AppState.window_width) / f32(AppState.window_height), AppState.near_plane, AppState.far_plane)
 	AppState.view       = lm.mat4LookAt(AppState.camera.position, AppState.camera.position + AppState.camera.front, AppState.camera.up)
 
@@ -111,8 +114,6 @@ application_tick :: proc() {
 	AppState.time       = f32(glfw.GetTime())
   AppState.delta_time = AppState.time - AppState.last_time
   AppState.last_time  = AppState.time
-
-	input_update(&AppState.input_state)
 }
 
 key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
@@ -123,14 +124,10 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 	if key >= 32 && key <= 248 {
 		is_key_pressed: bool = (action != glfw.RELEASE)
 		if AppState.input_state.keyboard_current.keys[key] != is_key_pressed {
-			AppState.input_state.keyboard_previous.keys[key] = AppState.input_state.keyboard_current.keys[key]
 			AppState.input_state.keyboard_current.keys[key] = is_key_pressed
 
 			context = runtime.default_context()
 			fmt.printf("[Keyboard]\n%v is %v\n\n", key, is_key_pressed)
-		} else {
-			AppState.input_state.keyboard_previous.keys[key] = AppState.input_state.keyboard_current.keys[key]
-			AppState.input_state.keyboard_current.keys[key] = is_key_pressed
 		}
 	}
 }

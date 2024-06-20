@@ -166,9 +166,18 @@ Input_State :: struct {
   mouse_previous: Mouse_State
 }
 
-// NOTE(fz): Most of the work of the input is through
-// GLFW's callbacks. This is mostly to cleanup the state
-// that we can't poll through the glfw callbacks
-input_update :: proc (input_state: ^Input_State) {
-
+is_key_pressed :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+  return is_key_down(input_state, key) && was_key_up(input_state, key)
+}
+is_key_up :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+  return input_state.keyboard_current.keys[key] == false
+}
+is_key_down :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+  return input_state.keyboard_current.keys[key] == true
+}
+was_key_up :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+  return input_state.keyboard_previous.keys[key] == false
+}
+was_key_down :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+  return input_state.keyboard_previous.keys[key] == true
 }
