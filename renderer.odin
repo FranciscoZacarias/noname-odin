@@ -422,10 +422,6 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	renderer_push_triangle(c, lm.vec2{1.0, 1.0}, color, d, lm.vec2{0.0, 1.0}, color, a, lm.vec2{0.0, 0.0}, color, texture)
 }
 
-renderer_update_window_dimensions :: proc (width: i32, height: i32) {
-	
-}
-
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {
 	uniform_location: i32 = gl.GetUniformLocation(program, strings.clone_to_cstring(uniform))
 	if uniform_location == -1 {
