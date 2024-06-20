@@ -340,7 +340,7 @@ renderer_begin_frame :: proc () {
 
 renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
 	gl.UseProgram(AppRenderer.shader)
-	model      := lm.identity(lm.mat4)
+	model      := lm.mat4Rotate(lm.vec3{0.0, 1.0, 0.0}, AppState.time) // lm.identity(lm.mat4)
 	view       := view
 	projection := projection
 	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering

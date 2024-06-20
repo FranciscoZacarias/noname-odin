@@ -3,6 +3,12 @@ package odinner
 import lm "core:math/linalg/glsl"
 
 World_Up :: lm.vec3{0.0, 1.0, 0.0}
+Camera_Speed :: 16.0
+
+Camera_Mode :: enum {
+  Mode_Fly,
+  Mode_Select
+}
 
 Camera :: struct {
   position: lm.vec3,
@@ -10,7 +16,8 @@ Camera :: struct {
   right:    lm.vec3,
   up:       lm.vec3,
   yaw:      f32,
-  pitch:    f32
+  pitch:    f32,
+  mode:     Camera_Mode
 }
 
 camera_init :: proc() -> (camera: Camera) {
@@ -20,16 +27,12 @@ camera_init :: proc() -> (camera: Camera) {
   camera.right    = lm.vec3{1.0, 0.0,  0.0}
   camera.yaw      = -90.0
   camera.pitch    = 0.0
-  _camera_update(&camera)
+  camera.mode     = .Mode_Select
+  camera_update(&camera)
   return camera
 }
 
-camera_update :: proc(camera: ^Camera, delta_time: f32) {
-
-}
-
-@(private="file")
-_camera_update :: proc(camera: ^Camera) {
+camera_update :: proc(camera: ^Camera) {
   front: lm.vec3 = {
     lm.cos(lm.radians(camera.yaw)) * lm.cos(lm.radians(camera.pitch)),
     lm.sin(lm.radians(camera.pitch)),

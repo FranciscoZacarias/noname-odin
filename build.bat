@@ -10,5 +10,4 @@ shift
 goto process_args
 :end_args
 
-@echo on
 odin build . -vet -o:none %DEBUG_FLAG%

@@ -102,22 +102,64 @@ application_init :: proc() -> (app: Application_State) {
 }
 
 application_tick :: proc() {
+	// Input and glfw events
 	AppState.input_state.keyboard_previous = AppState.input_state.keyboard_current;
 	AppState.input_state.mouse_previous    = AppState.input_state.mouse_current;
 	glfw.PollEvents()
 
+	// Perspective
 	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(AppState.window_width) / f32(AppState.window_height), AppState.near_plane, AppState.far_plane)
 	AppState.view       = lm.mat4LookAt(AppState.camera.position, AppState.camera.position + AppState.camera.front, AppState.camera.up)
 
-	camera_update(&AppState.camera, AppState.delta_time)
-
+	// Time 
 	AppState.time       = f32(glfw.GetTime())
   AppState.delta_time = AppState.time - AppState.last_time
   AppState.last_time  = AppState.time
+
+	// Camera
+	if is_button_down(AppState.input_state, .Button_RIGHT) {
+		if is_button_released(AppState.input_state, .Button_RIGHT) {
+			AppState.input_state.mouse_previous.coords = AppState.input_state.mouse_current.coords
+		}
+
+		AppState.camera.mode = .Mode_Fly
+		camera_speed: f32 = Camera_Speed * AppState.delta_time
+		if is_key_down(AppState.input_state, .Key_W) {
+			delta: lm.vec3 = AppState.camera.front * camera_speed
+			AppState.camera.position = AppState.camera.position + delta
+		}
+		if is_key_down(AppState.input_state, .Key_S) {
+			delta: lm.vec3 = AppState.camera.front * camera_speed
+			AppState.camera.position = AppState.camera.position - delta
+		}
+		if is_key_down(AppState.input_state, .Key_D) {
+			cross: lm.vec3 = lm.cross_vec3(AppState.camera.front, AppState.camera.up)
+			delta: lm.vec3 = cross * camera_speed
+			AppState.camera.position = AppState.camera.position + delta
+		}
+		if is_key_down(AppState.input_state, .Key_A) {
+			cross: lm.vec3 = lm.cross_vec3(AppState.camera.front, AppState.camera.up)
+			delta: lm.vec3 = cross * camera_speed
+			AppState.camera.position = AppState.camera.position - delta
+		}
+		if is_key_down(AppState.input_state, .Key_Q) {
+			AppState.camera.position.y -= camera_speed
+		}
+		if is_key_down(AppState.input_state, .Key_E) {
+			AppState.camera.position.y += camera_speed
+		}
+
+		camera_update(&AppState.camera)
+	} else {
+		AppState.camera.mode = .Mode_Select
+	}
 }
 
 key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
+	context = runtime.default_context()
+
 	if key == glfw.KEY_ESCAPE {
+		fmt.print("Program exited from pressing Escape!\n");
 		glfw.SetWindowShouldClose(window, true)
 	}
 
@@ -125,9 +167,6 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 		is_key_pressed: bool = (action != glfw.RELEASE)
 		if AppState.input_state.keyboard_current.keys[key] != is_key_pressed {
 			AppState.input_state.keyboard_current.keys[key] = is_key_pressed
-
-			context = runtime.default_context()
-			fmt.printf("[Keyboard]\n%v is %v\n\n", key, is_key_pressed)
 		}
 	}
 }
@@ -135,11 +174,15 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 button_callback :: proc "c" (window: glfw.WindowHandle, button, action, mods: i32) {
 	if button >= 0 && button <= 3 {
 		is_button_pressed: bool = (action != glfw.RELEASE)
+
+		if is_button_pressed && button == i32(Mouse_Button.Button_RIGHT) {
+			glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
+		} else {
+			glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_NORMAL)
+		}
+
 		if AppState.input_state.mouse_current.buttons[button] != is_button_pressed {
 			AppState.input_state.mouse_current.buttons[button] = is_button_pressed
-
-			context = runtime.default_context()
-			fmt.printf("[Button]\n%v is %v\n\n", button, is_button_pressed)
 		}
 	}
 }
@@ -147,9 +190,6 @@ button_callback :: proc "c" (window: glfw.WindowHandle, button, action, mods: i3
 cursor_callback :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {
 	AppState.input_state.mouse_current.coords.x = i32(xpos)
 	AppState.input_state.mouse_current.coords.y = i32(ypos)
-
-	context = runtime.default_context()
-	fmt.printf("[Cursor]\n%v, %v\n\n", i32(xpos), i32(ypos))
 }
 
 size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
