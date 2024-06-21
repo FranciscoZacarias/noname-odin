@@ -4,6 +4,7 @@ import lm "core:math/linalg/glsl"
 
 World_Up :: lm.vec3{0.0, 1.0, 0.0}
 Camera_Speed :: 16.0
+Camera_Sensitivity :: 0.1
 
 Camera_Mode :: enum {
   Mode_Fly,
@@ -20,7 +21,7 @@ Camera :: struct {
   mode:     Camera_Mode
 }
 
-camera_init :: proc() -> (camera: Camera) {
+camera_init :: proc () -> (camera: Camera) {
   camera.position = lm.vec3{0.0, 0.0,  3.0}
   camera.front    = lm.vec3{0.0, 0.0, -1.0}
   camera.up       = World_Up
@@ -32,7 +33,7 @@ camera_init :: proc() -> (camera: Camera) {
   return camera
 }
 
-camera_update :: proc(camera: ^Camera) {
+camera_update :: proc (camera: ^Camera) {
   front: lm.vec3 = {
     lm.cos(lm.radians(camera.yaw)) * lm.cos(lm.radians(camera.pitch)),
     lm.sin(lm.radians(camera.pitch)),

@@ -9,9 +9,7 @@ import stb_img "vendor:stb/image"
 import lm "core:math/linalg/glsl"
 
 MSAA_SAMPLES :: 4
-
-MAX_TRIANGLES :: 1024
-MAX_VERTICES  :: MAX_TRIANGLES * 3
+Initial_Vertices  :: 8192
 MAX_TEXTURES  :: 8
 
 Quad :: struct {
@@ -29,11 +27,16 @@ Vertex :: struct {
 
 Renderer :: struct {
 	shader: u32,
-	vao:    u32,
-	vbo:    u32,
 
-	vertices: [dynamic]Vertex,
-	textures: [dynamic]u32,
+	vao_triangles: u32,
+	vbo_triangles: u32,
+	
+	vao_lines:     u32,
+	vbo_lines:     u32,
+
+	vertices_triangles: [dynamic]Vertex,
+	vertices_lines:     [dynamic]Vertex,
+	textures:           [dynamic]u32,
 
 	msaa_fbo: u32,
 	msaa_rbo: u32,
@@ -89,32 +92,73 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 
 	// Default shader 
 	{
-		// VAO
-		gl.GenVertexArrays(1, &AppRenderer.vao)
-		gl.BindVertexArray(AppRenderer.vao)
+		// [] - TODO(fz): Eventhough the vertex arrays are dynamic, the opengl buffers for each vertex will not reallocate. If the arrays reallocate, the buffers will not have space anymore.
+		
+		// Triangles
+		{
+			gl.CreateVertexArrays(1, &AppRenderer.vao_triangles)
 
-		// VBO
-		gl.GenBuffers(1, &AppRenderer.vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo)
-		gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * MAX_VERTICES, nil, gl.DYNAMIC_DRAW)
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_triangles, 0)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_triangles, 0, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, position)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_triangles, 0, 0)
 
-		gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
-		gl.EnableVertexAttribArray(0)
-		gl.VertexAttribPointer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
-		gl.EnableVertexAttribArray(1)
-		gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, uv))
-		gl.EnableVertexAttribArray(2)
-		gl.VertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, texture))
-		gl.EnableVertexAttribArray(3)
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_triangles, 1)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_triangles, 1, 4, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, color)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_triangles, 1, 0)
 
-		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
-		gl.BindVertexArray(0)
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_triangles, 2)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_triangles, 2, 2, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_triangles, 2, 0)
 
-		AppRenderer.vertices = make([dynamic]Vertex, 0)
-		reserve(&AppRenderer.vertices, MAX_VERTICES)
-		AppRenderer.textures = make([dynamic]u32, 0)
-		reserve(&AppRenderer.textures, MAX_TEXTURES)
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_triangles, 3)
+			gl.VertexArrayAttribIFormat(AppRenderer.vao_triangles, 3, 1, gl.UNSIGNED_INT, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_triangles, 3, 0)
+
+			// VBO - Triangles
+			gl.CreateBuffers(1, &AppRenderer.vbo_triangles)
+			gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo_triangles)
+			gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * Initial_Vertices, nil, gl.DYNAMIC_DRAW)
+			gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+
+			gl.VertexArrayVertexBuffer(AppRenderer.vao_triangles, 0, AppRenderer.vbo_triangles, 0, size_of(Vertex))
+		}
+
+		// Lines
+		{
+			gl.CreateVertexArrays(1, &AppRenderer.vao_lines)
+
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_lines, 0)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_lines, 0, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, position)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_lines, 0, 0)
+
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_lines, 1)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_lines, 1, 4, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, color)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_lines, 1, 0)
+
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_lines, 2)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_lines, 2, 2, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_lines, 2, 0)
+
+			gl.EnableVertexArrayAttrib( AppRenderer.vao_lines, 3)
+			gl.VertexArrayAttribFormat( AppRenderer.vao_lines, 3, 1, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribBinding(AppRenderer.vao_lines, 3, 0)
+
+			// VBO - Lines
+			gl.CreateBuffers(1, &AppRenderer.vbo_lines)
+			gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo_lines)
+			gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * Initial_Vertices, nil, gl.DYNAMIC_DRAW)
+			gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+
+			gl.VertexArrayVertexBuffer(AppRenderer.vao_lines, 0, AppRenderer.vbo_lines, 0, size_of(Vertex))
+		}
 	}
+
+	AppRenderer.vertices_lines = make([dynamic]Vertex, 0)
+	reserve(&AppRenderer.vertices_lines, Initial_Vertices)
+	AppRenderer.vertices_triangles = make([dynamic]Vertex, 0)
+	reserve(&AppRenderer.vertices_triangles, Initial_Vertices)
+	AppRenderer.textures = make([dynamic]u32, 0)
+	reserve(&AppRenderer.textures, MAX_TEXTURES)
 
 	// MSAA
 	{
@@ -235,7 +279,7 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
-renderer_on_resize :: proc(window_width: i32, window_height: i32) {
+renderer_on_resize :: proc (window_width: i32, window_height: i32) {
 	// Rebuild MSAA buffers
 	{
 		gl.BindFramebuffer(gl.FRAMEBUFFER, AppRenderer.msaa_fbo)
@@ -288,7 +332,7 @@ renderer_on_resize :: proc(window_width: i32, window_height: i32) {
 	}
 }
 
-renderer_texture_load :: proc (path: string) -> (texture_id: u32) {
+renderer_load_texture :: proc (path: string) -> u32 {
 	exists := os.exists(path)
 	if !exists {
 		fmt.printf("Texture '%v' doesn't exist.\n", path)
@@ -300,6 +344,7 @@ renderer_texture_load :: proc (path: string) -> (texture_id: u32) {
 	data := stb_img.load(strings.clone_to_cstring(path), &width, &height, &channels, 0)
 	defer stb_img.image_free(data)
 
+	texture_id: u32
 	gl.GenTextures(1, &texture_id)    
 	gl.BindTexture(gl.TEXTURE_2D, texture_id)
 
@@ -323,9 +368,33 @@ renderer_texture_load :: proc (path: string) -> (texture_id: u32) {
 		gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
 	}
 
+	gl.BindTexture(gl.TEXTURE_2D, 0)
+
+	texture_handle := u32(len(AppRenderer.textures))
 	append(&AppRenderer.textures, texture_id)
 
-	return texture_id
+	return texture_handle
+}
+
+renderer_load_color :: proc (r: u8, g: u8, b: u8, a: u8) -> u32 {
+	texture_data := [4]u8{r,g,b,a}
+
+	texture_id: u32
+	gl.GenTextures(1, &texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, texture_id)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, raw_data(texture_data[:]))
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+	gl.BindTexture(gl.TEXTURE_2D, 0)
+
+	texture_handle := u32(len(AppRenderer.textures))
+	append(&AppRenderer.textures, texture_id)
+
+	return texture_handle
 }
 
 renderer_begin_frame :: proc () {
@@ -335,12 +404,13 @@ renderer_begin_frame :: proc () {
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
 
-	clear(&AppRenderer.vertices)
+	clear(&AppRenderer.vertices_triangles)
+	clear(&AppRenderer.vertices_lines)
 }
 
 renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
 	gl.UseProgram(AppRenderer.shader)
-	model      := lm.mat4Rotate(lm.vec3{0.0, 1.0, 0.0}, AppState.time) // lm.identity(lm.mat4)
+	model      := lm.identity(lm.mat4)
 	view       := view
 	projection := projection
 	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
@@ -353,10 +423,23 @@ renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i3
 	}
 
 	// Draw to MSAA FBO
-	gl.BindVertexArray(AppRenderer.vao)
-	gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo)
-	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(AppRenderer.vertices) * 3 * size_of(Vertex), raw_data(AppRenderer.vertices[:]))
-	gl.DrawArrays(gl.TRIANGLES, 0, i32(len(AppRenderer.vertices)) * 3)
+	{
+		// Draw Triangles
+		gl.BindVertexArray(AppRenderer.vao_triangles)
+		gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo_triangles)
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(AppRenderer.vertices_triangles) * 3 * size_of(Vertex), raw_data(AppRenderer.vertices_triangles[:]))
+		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+		gl.DrawArrays(gl.TRIANGLES, 0, i32(len(AppRenderer.vertices_triangles)) * 3)
+
+		// Draw lines
+		gl.BindVertexArray(AppRenderer.vao_lines)
+		gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.vbo_lines)
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(AppRenderer.vertices_lines) * 3 * size_of(Vertex), raw_data(AppRenderer.vertices_lines[:]))
+		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+		gl.DrawArrays(gl.LINES, 0, i32(len(AppRenderer.vertices_lines)) * 3)
+
+		gl.BindVertexArray(0)
+	}
 
 	// Copy from MSAA FBO to Post Processing FBO
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, AppRenderer.msaa_fbo)
@@ -383,16 +466,23 @@ renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i3
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 }
 
-renderer_push_triangle :: proc (a_position: lm.vec3, a_uv: lm.vec2, a_color: lm.vec4,
-																b_position: lm.vec3, b_uv: lm.vec2, b_color: lm.vec4,
-																c_position: lm.vec3, c_uv: lm.vec2, c_color: lm.vec4,
+renderer_push_line :: proc (a_position: lm.vec3, b_position: lm.vec3, texture: u32) {
+	a := Vertex { a_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec2{0.0, 0.0}, texture}
+	append(&AppRenderer.vertices_lines, a)
+	b := Vertex { b_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec2{1.0, 1.0}, texture}
+	append(&AppRenderer.vertices_lines, b)
+}
+
+renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uv: lm.vec2,
+																b_position: lm.vec3, b_color: lm.vec4, b_uv: lm.vec2,
+																c_position: lm.vec3, c_color: lm.vec4, c_uv: lm.vec2,
 																texture: u32) {
 	a := Vertex{ a_position, a_color, a_uv, texture }
-	append(&AppRenderer.vertices, a)
+	append(&AppRenderer.vertices_triangles, a)
 	b := Vertex{ b_position, b_color, b_uv, texture }
-	append(&AppRenderer.vertices, b)
+	append(&AppRenderer.vertices_triangles, b)
 	c := Vertex{ c_position, c_color, c_uv, texture }
-	append(&AppRenderer.vertices, c)
+	append(&AppRenderer.vertices_triangles, c)
 }
 
 renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
@@ -400,8 +490,8 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	b := lm.vec3{quad.point.x + quad.width, quad.point.y, quad.point.z}
 	c := lm.vec3{quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z}
 	d := lm.vec3{quad.point.x, quad.point.y + quad.height, quad.point.z}
-	renderer_push_triangle(a, lm.vec2{0.0, 0.0}, color, b, lm.vec2{1.0, 0.0}, color, c, lm.vec2{1.0, 1.0}, color, texture)
-	renderer_push_triangle(c, lm.vec2{1.0, 1.0}, color, d, lm.vec2{0.0, 1.0}, color, a, lm.vec2{0.0, 0.0}, color, texture)
+	renderer_push_triangle(a, color, lm.vec2{0.0, 0.0}, b, color, lm.vec2{1.0, 0.0}, c, color, lm.vec2{1.0, 1.0}, texture)
+	renderer_push_triangle(c, color, lm.vec2{1.0, 1.0}, d, color, lm.vec2{0.0, 1.0}, a, color, lm.vec2{0.0, 0.0}, texture)
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {

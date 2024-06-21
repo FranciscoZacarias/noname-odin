@@ -166,40 +166,40 @@ Input_State :: struct {
   mouse_previous: Mouse_State
 }
 
-is_key_pressed :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+is_key_pressed :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {
   return is_key_down(input_state, key) && was_key_up(input_state, key)
 }
-is_key_released :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+is_key_released :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {
   return is_key_up(input_state, key) && was_key_down(input_state, key)
 }
-is_key_up :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+is_key_up :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {
   return input_state.keyboard_current.keys[key] == false
 }
-is_key_down :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+is_key_down :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {
   return input_state.keyboard_current.keys[key] == true
 }
-was_key_up :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+was_key_up :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {
   return input_state.keyboard_previous.keys[key] == false
 }
-was_key_down :: proc(input_state: Input_State, key: Keyboard_Key) -> bool {
+was_key_down :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {
   return input_state.keyboard_previous.keys[key] == true
 }
 
-is_button_pressed :: proc(input_state: Input_State, button: Mouse_Button) -> bool {
+is_button_pressed :: proc (input_state: Input_State, button: Mouse_Button) -> bool {
   return is_button_down(input_state, button) && was_button_up(input_state, button)
 }
-is_button_released :: proc(input_state: Input_State, button: Mouse_Button) -> bool {
+is_button_released :: proc (input_state: Input_State, button: Mouse_Button) -> bool {
   return is_button_up(input_state, button) && was_button_down(input_state, button)
 }
-is_button_up :: proc(input_state: Input_State, button: Mouse_Button) -> bool {
+is_button_up :: proc (input_state: Input_State, button: Mouse_Button) -> bool {
   return input_state.mouse_current.buttons[button] == false
 }
-is_button_down :: proc(input_state: Input_State, button: Mouse_Button) -> bool {
+is_button_down :: proc (input_state: Input_State, button: Mouse_Button) -> bool {
   return input_state.mouse_current.buttons[button] == true
 }
-was_button_up :: proc(input_state: Input_State, button: Mouse_Button) -> bool {
+was_button_up :: proc (input_state: Input_State, button: Mouse_Button) -> bool {
   return input_state.mouse_previous.buttons[button] == false
 }
-was_button_down :: proc(input_state: Input_State, button: Mouse_Button) -> bool {
+was_button_down :: proc (input_state: Input_State, button: Mouse_Button) -> bool {
   return input_state.mouse_previous.buttons[button] == true
 }

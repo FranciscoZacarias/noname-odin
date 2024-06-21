@@ -68,14 +68,21 @@ main :: proc () {
 	AppState = application_init()
 
 	renderer_init(AppState.window_width, AppState.window_height)
-	kakashi_eye: u32 = renderer_texture_load("res/kakashi.png")
+	red   := renderer_load_color(255, 0, 0, 255)
+	green := renderer_load_color(0, 255, 0, 255)
+	blue  := renderer_load_color(0, 0, 255, 255)
+	kakashi_eye := renderer_load_texture("res/kakashi.png")
 	
 	for !glfw.WindowShouldClose(window) {
 		application_tick()
 
 		renderer_begin_frame()
 
-		q0 := Quad{lm.vec3{-0.25, -0.25, 0.0}, 0.5, 0.5}
+		renderer_push_line(lm.vec3{-10.0,  0.0,   0.0}, lm.vec3{10.0, 0.0,  0.0}, red)
+		renderer_push_line(lm.vec3{ 0.0, -10.0,   0.0}, lm.vec3{0.0,  10.0, 0.0}, green)
+		renderer_push_line(lm.vec3{ 0.0,   0.0, -10.0}, lm.vec3{0.0,  0.0,  10.0}, blue)
+
+		q0 := Quad{lm.vec3{2, 2, -2.0}, 1, 1}
 		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
 
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
@@ -84,7 +91,7 @@ main :: proc () {
 	}
 }
 
-application_init :: proc() -> (app: Application_State) {
+application_init :: proc () -> (app: Application_State) {
 	app.camera     = camera_init()
 	app.projection = lm.identity(lm.mat4)
 	app.view       = lm.identity(lm.mat4)
@@ -101,7 +108,7 @@ application_init :: proc() -> (app: Application_State) {
 	return app
 }
 
-application_tick :: proc() {
+application_tick :: proc () {
 	// Input and glfw events
 	AppState.input_state.keyboard_previous = AppState.input_state.keyboard_current;
 	AppState.input_state.mouse_previous    = AppState.input_state.mouse_current;
@@ -148,6 +155,13 @@ application_tick :: proc() {
 		if is_key_down(AppState.input_state, .Key_E) {
 			AppState.camera.position.y += camera_speed
 		}
+
+		x_offset := AppState.input_state.mouse_current.coords.x - AppState.input_state.mouse_previous.coords.x
+		y_offset := AppState.input_state.mouse_previous.coords.y - AppState.input_state.mouse_current.coords.y
+
+		AppState.camera.yaw   += f32(x_offset) * Camera_Sensitivity
+		pitch := f32(y_offset) * Camera_Sensitivity
+		AppState.camera.pitch += clamp(pitch, -89.0, 89.0)
 
 		camera_update(&AppState.camera)
 	} else {
