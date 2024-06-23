@@ -54,6 +54,21 @@ AppRenderer: Renderer
 
 renderer_init :: proc (window_width: i32, window_height: i32) {
 
+	if (false) {
+		// DEBUG Info.
+		renderer:= gl.GetString(gl.RENDERER)
+		vendor:= gl.GetString(gl.VENDOR)
+		version:= gl.GetString(gl.VERSION)
+		glsl_version:= gl.GetString(gl.SHADING_LANGUAGE_VERSION)
+		fmt.printf("Renderer: %s\n", renderer)
+		fmt.printf("Vendor: %s\n", vendor)
+		fmt.printf("OpenGL Version: %s\n", version)
+		fmt.printf("GLSL Version: %s\n", glsl_version)
+		max_texture_units: i32
+		gl.GetIntegerv(gl.MAX_TEXTURE_IMAGE_UNITS, &max_texture_units)
+		fmt.printf("Maximum Texture Image Units: %d\n", max_texture_units)
+	}
+
 	// Default program
 	{
 		vs_source, vs_success := os.read_entire_file("shader/default_vs.glsl")
@@ -140,7 +155,7 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 			gl.VertexArrayAttribBinding(AppRenderer.vao_lines, 2, 0)
 
 			gl.EnableVertexArrayAttrib( AppRenderer.vao_lines, 3)
-			gl.VertexArrayAttribFormat( AppRenderer.vao_lines, 3, 1, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribIFormat(AppRenderer.vao_lines, 3, 1, gl.UNSIGNED_INT, u32(offset_of(Vertex, texture)))
 			gl.VertexArrayAttribBinding(AppRenderer.vao_lines, 3, 0)
 
 			// VBO - Lines

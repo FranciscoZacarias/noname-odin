@@ -1,3 +1,3 @@
 @echo off
 
-odin run . -vet -o:none -debug
+odin run . -o:none -debug -vet

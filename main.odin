@@ -66,8 +66,8 @@ main :: proc () {
 	gl.load_up_to(4, 6, set_proc_address) 
 
 	AppState = application_init()
-
 	renderer_init(AppState.window_width, AppState.window_height)
+
 	red   := renderer_load_color(255, 0, 0, 255)
 	green := renderer_load_color(0, 255, 0, 255)
 	blue  := renderer_load_color(0, 0, 255, 255)
