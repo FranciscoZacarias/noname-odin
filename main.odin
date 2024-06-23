@@ -3,13 +3,14 @@ package odinner
 import "base:runtime"
 
 import "core:fmt"
+import "core:os"
 import lm "core:math/linalg/glsl"
 
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-Window_Width  : i32 : 400
-Window_Height : i32 : 400
+Window_Width  : i32 : 1280
+Window_Height : i32 : 720
 
 Application_State :: struct {
 	time:       f32,
@@ -72,15 +73,17 @@ main :: proc () {
 	green := renderer_load_color(0, 255, 0, 255)
 	blue  := renderer_load_color(0, 0, 255, 255)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
-	
+
+	parse_wavefront("res/crate.obj")
+
 	for !glfw.WindowShouldClose(window) {
 		application_tick()
 
 		renderer_begin_frame()
 
-		renderer_push_line(lm.vec3{-10.0,  0.0,   0.0}, lm.vec3{10.0, 0.0,  0.0}, red)
-		renderer_push_line(lm.vec3{ 0.0, -10.0,   0.0}, lm.vec3{0.0,  10.0, 0.0}, green)
-		renderer_push_line(lm.vec3{ 0.0,   0.0, -10.0}, lm.vec3{0.0,  0.0,  10.0}, blue)
+		renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
+		renderer_push_line(lm.vec3{ 0.0, -32.0,   0.0}, lm.vec3{0.0,  32.0, 0.0}, green)
+		renderer_push_line(lm.vec3{ 0.0,   0.0, -32.0}, lm.vec3{0.0,  0.0,  32.0}, blue)
 
 		q0 := Quad{lm.vec3{2, 2, -2.0}, 1, 1}
 		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
