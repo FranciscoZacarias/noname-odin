@@ -3,7 +3,6 @@ package odinner
 import "base:runtime"
 
 import "core:fmt"
-import "core:os"
 import lm "core:math/linalg/glsl"
 
 import "vendor:glfw"
@@ -88,6 +87,9 @@ main :: proc () {
 		q0 := Quad{lm.vec3{2.0, 2.0, -2.0}, 1, 1}
 		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
 		
+		q1 := Quad{lm.vec3{-2.0, 2.0, -2.0}, 1, 1}
+		renderer_push_quad(q1, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
+
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		
 		glfw.SwapBuffers(window)

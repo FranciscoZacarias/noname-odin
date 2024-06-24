@@ -1,3 +1,3 @@
 @echo off
 
-odin build . -vet -o:none %DEBUG_FLAG%
+odin build . -vet -o:none -debug

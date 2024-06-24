@@ -1,7 +1,5 @@
 package odinner
 
-import "core:fmt"
-import "core:os"
 import lm "core:math/linalg/glsl"
 
 Wavefront_Object :: struct {
@@ -12,11 +10,10 @@ Wavefront_Object :: struct {
 }
 
 parse_wavefront :: proc(obj_path: string) {
-	obj, ok := os.read_entire_file(obj_path)
-	if !ok {
-		fmt.println("Unable to load wavefront file: %v", obj_path)
-		assert(false)
-	}
-
+	// obj, ok := os.read_entire_file(obj_path)
+	// if !ok {
+	//	fmt.println("Unable to load wavefront file: %v", obj_path)
+	//	assert(false)
+	// }
  
 }
