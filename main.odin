@@ -69,9 +69,9 @@ main :: proc () {
 	AppState = application_init()
 	renderer_init(AppState.window_width, AppState.window_height)
 
-	red   := renderer_load_color(255, 0, 0, 255)
-	green := renderer_load_color(0, 255, 0, 255)
-	blue  := renderer_load_color(0, 0, 255, 255)
+	red   := renderer_load_color(1.0, 0, 0, 1.0)
+	green := renderer_load_color(0, 1.0, 0, 1.0)
+	blue  := renderer_load_color(0, 0, 1.0, 1.0)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
 	parse_wavefront("res/crate.obj")
@@ -85,9 +85,9 @@ main :: proc () {
 		renderer_push_line(lm.vec3{ 0.0, -32.0,   0.0}, lm.vec3{0.0,  32.0, 0.0}, green)
 		renderer_push_line(lm.vec3{ 0.0,   0.0, -32.0}, lm.vec3{0.0,  0.0,  32.0}, blue)
 
-		q0 := Quad{lm.vec3{2, 2, -2.0}, 1, 1}
+		q0 := Quad{lm.vec3{2.0, 2.0, -2.0}, 1, 1}
 		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
-
+		
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		
 		glfw.SwapBuffers(window)
