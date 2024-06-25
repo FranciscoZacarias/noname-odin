@@ -8,8 +8,8 @@ import lm "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-Window_Width  : i32 : 400
-Window_Height : i32 : 400
+Window_Width  : i32 : 1280
+Window_Height : i32 : 720
 
 Application_State :: struct {
 	window: glfw.WindowHandle,
@@ -70,19 +70,23 @@ main :: proc () {
 
 	parse_wavefront("res/Crate.obj")
 
+	// XYZ axis
+	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
+	renderer_push_line(lm.vec3{ 0.0, -32.0,   0.0}, lm.vec3{0.0,  32.0, 0.0}, green)
+	renderer_push_line(lm.vec3{ 0.0,   0.0, -32.0}, lm.vec3{0.0,  0.0,  32.0}, blue)
+
+	// Quad tests
+	q0 := Quad{lm.vec3{2.0, 2.0, -2.0}, 1, 1}
+	renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
+	q1 := Quad{lm.vec3{-2.0, 2.0, -2.0}, 1, 1}
+	renderer_push_quad(q1, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
+
 	for !glfw.WindowShouldClose(AppState.window) {
 		application_tick()
 
 		renderer_begin_frame()
 		{
-			renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
-			renderer_push_line(lm.vec3{ 0.0, -32.0,   0.0}, lm.vec3{0.0,  32.0, 0.0}, green)
-			renderer_push_line(lm.vec3{ 0.0,   0.0, -32.0}, lm.vec3{0.0,  0.0,  32.0}, blue)
 
-			q0 := Quad{lm.vec3{2.0, 2.0, -2.0}, 1, 1}
-			renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
-			q1 := Quad{lm.vec3{-2.0, 2.0, -2.0}, 1, 1}
-			renderer_push_quad(q1, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
 		}
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		

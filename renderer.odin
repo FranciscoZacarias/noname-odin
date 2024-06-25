@@ -8,7 +8,7 @@ import gl "vendor:OpenGL"
 import stb_img "vendor:stb/image"
 import lm "core:math/linalg/glsl"
 
-MSAA_SAMPLES :: 4
+MSAA_SAMPLES :: 8
 
 Initial_Vertices :: 8192
 Initial_Lines    :: 8192
@@ -33,6 +33,7 @@ Renderer :: struct {
 	shader: u32,
 
 	triangles_vao: u32,
+	triangles_vao_attributes: u32,
 	triangles_vbo: u32,
 	triangles_ebo: u32,
 	triangles_vertices: [dynamic]Vertex,
@@ -129,10 +130,14 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 			gl.EnableVertexArrayAttrib( AppRenderer.triangles_vao, 2)
 			gl.VertexArrayAttribFormat( AppRenderer.triangles_vao, 2, 2, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
 			gl.VertexArrayAttribBinding(AppRenderer.triangles_vao, 2, 0)
-
+			
 			gl.EnableVertexArrayAttrib( AppRenderer.triangles_vao, 3)
-			gl.VertexArrayAttribIFormat(AppRenderer.triangles_vao, 3, 1, gl.UNSIGNED_INT, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribFormat( AppRenderer.triangles_vao, 3, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, normal)))
 			gl.VertexArrayAttribBinding(AppRenderer.triangles_vao, 3, 0)
+
+			gl.EnableVertexArrayAttrib( AppRenderer.triangles_vao, 4)
+			gl.VertexArrayAttribIFormat(AppRenderer.triangles_vao, 4, 1, gl.UNSIGNED_INT, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribBinding(AppRenderer.triangles_vao, 4, 0)
 
 			// VBO - Triangles
 			gl.CreateBuffers(1, &AppRenderer.triangles_vbo)
@@ -162,8 +167,12 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 			gl.VertexArrayAttribBinding(AppRenderer.lines_vao, 2, 0)
 
 			gl.EnableVertexArrayAttrib( AppRenderer.lines_vao, 3)
-			gl.VertexArrayAttribIFormat(AppRenderer.lines_vao, 3, 1, gl.UNSIGNED_INT, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribFormat( AppRenderer.lines_vao, 3, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
 			gl.VertexArrayAttribBinding(AppRenderer.lines_vao, 3, 0)
+
+			gl.EnableVertexArrayAttrib( AppRenderer.lines_vao, 4)
+			gl.VertexArrayAttribIFormat(AppRenderer.lines_vao, 4, 1, gl.UNSIGNED_INT, u32(offset_of(Vertex, texture)))
+			gl.VertexArrayAttribBinding(AppRenderer.lines_vao, 4, 0)
 
 			// VBO - Lines
 			gl.CreateBuffers(1, &AppRenderer.lines_vbo)
@@ -275,19 +284,16 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 		}
 		
 		// Screen VAO
-		gl.GenVertexArrays(1, &AppRenderer.screen_vao)
-		gl.BindVertexArray(AppRenderer.screen_vao)
-
+		gl.CreateVertexArrays(1, &AppRenderer.screen_vao)
+		
+		gl.EnableVertexArrayAttrib(AppRenderer.screen_vao, 0)
+		gl.VertexArrayAttribFormat(AppRenderer.screen_vao, 0, 2, gl.FLOAT, gl.FALSE, 0)
+		gl.VertexArrayAttribBinding(AppRenderer.screen_vao, 0, 0)
+		
 		// Screen VBO
-		gl.GenBuffers(1, &AppRenderer.screen_vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, AppRenderer.screen_vbo)
-		gl.BufferData(gl.ARRAY_BUFFER, size_of(screen_vertices), &screen_vertices, gl.STATIC_DRAW)
-
-		gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2*size_of(f32), 0)
-		gl.EnableVertexAttribArray(0)
-
-		gl.BindVertexArray(0)
-		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+		gl.CreateBuffers(1, &AppRenderer.screen_vbo)
+		gl.NamedBufferData(AppRenderer.screen_vbo, size_of(screen_vertices), &screen_vertices, gl.STATIC_DRAW)
+		gl.VertexArrayVertexBuffer(AppRenderer.screen_vao, 0, AppRenderer.screen_vbo, 0, 2*size_of(f32))
 	}
 
 	// Set texture ids
@@ -424,10 +430,6 @@ renderer_begin_frame :: proc () {
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
-
-	clear(&AppRenderer.triangles_vertices)
-	clear(&AppRenderer.triangles_indices)
-	clear(&AppRenderer.lines_vertices)
 }
 
 renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
@@ -488,18 +490,18 @@ renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i3
 
 renderer_push_line :: proc (a_position: lm.vec3, b_position: lm.vec3, texture: u32) {
 	a := Vertex { a_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec2{0.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
-	append(&AppRenderer.lines_vertices, a)
 	b := Vertex { b_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec2{1.0, 1.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
+	append(&AppRenderer.lines_vertices, a)
 	append(&AppRenderer.lines_vertices, b)
 }
 
 renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uv: lm.vec2, b_position: lm.vec3, b_color: lm.vec4, b_uv: lm.vec2, c_position: lm.vec3, c_color: lm.vec4, c_uv: lm.vec2, texture: u32) {
 	triangle_vertices := [3]Vertex {
-		Vertex{ a_position, a_color, a_uv, lm.vec3{0.0, 0.0, 0.0}, texture },
-		Vertex{ b_position, b_color, b_uv, lm.vec3{0.0, 0.0, 0.0}, texture },
-		Vertex{ c_position, c_color, c_uv, lm.vec3{0.0, 0.0, 0.0}, texture }
+		Vertex{ a_position, a_color, a_uv, lm.vec3{1.0, 0.0, 0.0}, texture },
+		Vertex{ b_position, b_color, b_uv, lm.vec3{1.0, 0.0, 0.0}, texture },
+		Vertex{ c_position, c_color, c_uv, lm.vec3{1.0, 0.0, 0.0}, texture }
 	}
-	
+
 	for quad_vertex in triangle_vertices {
 		exists := false
 		for vertex, index in AppRenderer.triangles_vertices {
