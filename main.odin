@@ -8,10 +8,12 @@ import lm "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-Window_Width  : i32 : 1280
-Window_Height : i32 : 720
+Window_Width  : i32 : 400
+Window_Height : i32 : 400
 
 Application_State :: struct {
+	window: glfw.WindowHandle,
+
 	time:       f32,
 	delta_time: f32,
 	last_time:  f32,
@@ -44,28 +46,21 @@ main :: proc () {
 		fmt.eprintln("GLFW has failed to load.")
 		return
 	}
-	defer glfw.Terminate()
 
 	glfw.WindowHint(glfw.RESIZABLE, 1)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 4)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 6)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
-	window := glfw.CreateWindow(Window_Width, Window_Height, "noname-odin", nil, nil)
-	if window == nil {
-		fmt.eprintln("GLFW has failed to load the window.")
-		return
-	}
-	defer glfw.DestroyWindow(window)
+	AppState = application_init()
 
-	glfw.MakeContextCurrent(window)
-	glfw.SetKeyCallback(window, key_callback)
-	glfw.SetFramebufferSizeCallback(window, size_callback)
-	glfw.SetCursorPosCallback(window, cursor_callback)
-	glfw.SetMouseButtonCallback(window, button_callback)
+	glfw.MakeContextCurrent(AppState.window)
+	glfw.SetKeyCallback(AppState.window, key_callback)
+	glfw.SetFramebufferSizeCallback(AppState.window, size_callback)
+	glfw.SetCursorPosCallback(AppState.window, cursor_callback)
+	glfw.SetMouseButtonCallback(AppState.window, button_callback)
 	gl.load_up_to(4, 6, set_proc_address) 
 
-	AppState = application_init()
 	renderer_init(AppState.window_width, AppState.window_height)
 
 	red   := renderer_load_color(1.0, 0, 0, 1.0)
@@ -73,30 +68,35 @@ main :: proc () {
 	blue  := renderer_load_color(0, 0, 1.0, 1.0)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	parse_wavefront("res/crate.obj")
+	parse_wavefront("res/Crate.obj")
 
-	for !glfw.WindowShouldClose(window) {
+	for !glfw.WindowShouldClose(AppState.window) {
 		application_tick()
 
 		renderer_begin_frame()
+		{
+			renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
+			renderer_push_line(lm.vec3{ 0.0, -32.0,   0.0}, lm.vec3{0.0,  32.0, 0.0}, green)
+			renderer_push_line(lm.vec3{ 0.0,   0.0, -32.0}, lm.vec3{0.0,  0.0,  32.0}, blue)
 
-		renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
-		renderer_push_line(lm.vec3{ 0.0, -32.0,   0.0}, lm.vec3{0.0,  32.0, 0.0}, green)
-		renderer_push_line(lm.vec3{ 0.0,   0.0, -32.0}, lm.vec3{0.0,  0.0,  32.0}, blue)
-
-		q0 := Quad{lm.vec3{2.0, 2.0, -2.0}, 1, 1}
-		renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
-		
-		q1 := Quad{lm.vec3{-2.0, 2.0, -2.0}, 1, 1}
-		renderer_push_quad(q1, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
-
+			q0 := Quad{lm.vec3{2.0, 2.0, -2.0}, 1, 1}
+			renderer_push_quad(q0, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
+			q1 := Quad{lm.vec3{-2.0, 2.0, -2.0}, 1, 1}
+			renderer_push_quad(q1, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
+		}
 		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		
-		glfw.SwapBuffers(window)
+		glfw.SwapBuffers(AppState.window)
 	}
 }
 
 application_init :: proc () -> (app: Application_State) {
+	app.window = glfw.CreateWindow(Window_Width, Window_Height, "noname-odin", nil, nil)
+	if app.window == nil {
+		fmt.eprintln("GLFW has failed to load the window.")
+		assert(false)
+	}
+
 	app.camera     = camera_init()
 	app.projection = lm.identity(lm.mat4)
 	app.view       = lm.identity(lm.mat4)
