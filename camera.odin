@@ -8,7 +8,7 @@ Camera_Sensitivity :: 0.1
 
 Camera_Mode :: enum {
   Mode_Fly,
-  Mode_Select
+  Mode_Select,
 }
 
 Camera :: struct {
@@ -18,7 +18,7 @@ Camera :: struct {
   up:       lm.vec3,
   yaw:      f32,
   pitch:    f32,
-  mode:     Camera_Mode
+  mode:     Camera_Mode,
 }
 
 camera_init :: proc () -> (camera: Camera) {

@@ -7,7 +7,7 @@ Mouse_Button :: enum {
   Button_RIGHT  = 1,
   Button_MIDDLE = 2,
 
-  Button_COUNT
+  Button_COUNT,
 }
 
 // NOTE(fz): These match GLFW. Needs to be re worked if we abstract this input system
@@ -150,12 +150,12 @@ Keyboard_Key :: enum {
 }
 
 Keyboard_State :: struct {
-  keys: [128]bool
+  keys: [128]bool,
 }
 
 Mouse_State :: struct {
   coords: lm.ivec2,
-  buttons: [Mouse_Button.Button_COUNT]bool
+  buttons: [Mouse_Button.Button_COUNT]bool,
 }
 
 Input_State :: struct {
@@ -163,7 +163,7 @@ Input_State :: struct {
   keyboard_previous: Keyboard_State,
 
   mouse_current:  Mouse_State,
-  mouse_previous: Mouse_State
+  mouse_previous: Mouse_State,
 }
 
 is_key_pressed :: proc (input_state: Input_State, key: Keyboard_Key) -> bool {

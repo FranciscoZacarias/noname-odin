@@ -6,10 +6,12 @@ import "core:strconv"
 import "core:fmt"
 import lm "core:math/linalg/glsl"
 
+Default_Array_Size :: 1024
+
 Face_Type :: enum {
 	Type_Empty = 0,
 	Type_Triangle,
-	Type_Quad
+	Type_Quad,
 }
 
 Wavefront_Object :: struct {
@@ -22,21 +24,23 @@ Wavefront_Object :: struct {
 	face_type: Face_Type,
 	// These START AT 1!
 	// vertex_index/vertex_texture_index/vertex_normal_index
-	face_triangles: [dynamic][3][3]u64,
-	face_quads:     [dynamic][4][3]u64,
+	face: [dynamic][4][3]u64,
 }
 
 parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 	obj_source, ok := os.read_entire_file(obj_path)
 	if !ok {
-		fmt.println("Unable to load wavefront file: %v", obj_path)
+		fmt.printfln("Unable to load wavefront file: %v", obj_path)
 		assert(false)
 	}
 	defer delete(obj_source)
 
-	obj.vertex         = make([dynamic]lm.vec3, 0)
+	obj.vertex = make([dynamic]lm.vec3, 0)
+	reserve(&obj.vertex, Default_Array_Size)
 	obj.vertex_texture = make([dynamic]lm.vec3, 0)
-	obj.vertex_normal	 = make([dynamic]lm.vec3, 0)
+	reserve(&obj.vertex_texture, Default_Array_Size)
+	obj.vertex_normal	= make([dynamic]lm.vec3, 0)
+	reserve(&obj.vertex_normal, Default_Array_Size)
 
 	it := string(obj_source)
 	obj_src_lines := 0
@@ -57,8 +61,9 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 			}
 
 			case "g": {
-				assert(len(elems) == 2, "[Wavefront] The 'g' value had more than 1 value.")
-				assert(obj.name == "",  "[Wavefront] Tried to set 'g' value twice.")
+				if obj.name != "" {
+					fmt.println("[Wavefront] The 'g' value was set more than once.")
+				}
 				obj.name = elems[1]
 			}
 
@@ -71,7 +76,7 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 					} 
 					v[v_index], ok = strconv.parse_f32(elem)
 					if !ok {
-						fmt.printf("[Wavefront] Unable to  convert v value: '%v' to an f32.", elem)
+						fmt.printfln("[Wavefront] Unable to  convert v value: '%v' to an f32.", elem)
 						assert(false)
 					}
 					v_index += 1
@@ -88,7 +93,7 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 					} 
 					vn[vn_index], ok = strconv.parse_f32(elem)
 					if !ok {
-						fmt.printf("[Wavefront] Unable to convert vn value: '%v' to an f32.", elem)
+						fmt.printfln("[Wavefront] Unable to convert vn value: '%v' to an f32.", elem)
 						assert(false)
 					}
 					vn_index += 1
@@ -105,7 +110,7 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 					} 
 					vt[vt_index], ok = strconv.parse_f32(elem)
 					if !ok {
-						fmt.printf("[Wavefront] Unable to convert vt value: '%v' to an f32.", elem)
+						fmt.printfln("[Wavefront] Unable to convert vt value: '%v' to an f32.", elem)
 						assert(false)
 					}
 					vt_index += 1
@@ -115,110 +120,83 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 
 			case "f": {
 				if obj.face_type == .Type_Empty {
-					if len(elems) == 4 {
+					vertex_count := 0
+					for i in 1..<len(elems) {
+						if len(elems[i]) == 0 {
+							continue
+						}
+						vertex_count += 1
+					}
+
+					if vertex_count == 3 {
 						obj.face_type = .Type_Triangle
-						obj.face_triangles = make([dynamic][3][3]u64, 0)
-						reserve(&obj.face_triangles, int(f32(obj_src_lines)*0.4))
-					} else if len(elems) == 5 {
+					} else if vertex_count == 4 {
 						obj.face_type = .Type_Quad
-						obj.face_quads = make([dynamic][4][3]u64, 0)
-						reserve(&obj.face_quads, int(f32(obj_src_lines)*0.4))
 					} else {
-						fmt.printf("[Wavefront] Unexpected number of vertices specified in 'f' value of Wavefront object. L:%v\n", line_nr)
+						fmt.printfln("[Wavefront] Unexpected number of vertices '%v' specified in 'f' value of Wavefront object. L:%v", len(elems), line_nr)
 						assert(false)
+					}
+					obj.face = make([dynamic][4][3]u64, 0)
+					reserve(&obj.face, int(f32(obj_src_lines)*0.4))
+				}
+
+				data: [4][3]u64
+				vertex_index := 0
+				
+				for elem, i in elems {
+					if i == 0 || len(elem) == 0 {
+						continue
+					}
+
+					v_vt_vn: [3]u64
+
+					if strings.contains(elem, "/") {
+						indices := strings.split(elem, "/")
+						for index, j in indices {
+							v_vt_vn[j], ok = strconv.parse_u64(index)
+							if !ok {
+								fmt.printfln("[Wavefront] Unable to convert f value: '%v' to u64.", index)
+								assert(false)
+							}
+						}
+						data[vertex_index] = v_vt_vn
+						vertex_index += 1
+					} else {
+						v_vt_vn[0], ok = strconv.parse_u64(elem)
+						data[vertex_index] = v_vt_vn
+						vertex_index += 1
 					}
 				}
 
-				switch obj.face_type {
-					case .Type_Empty: {
-						fmt.printf("[Wavefront] Face type was empty and should've already been set.")
-						assert(false)
-					}
-
-					case .Type_Triangle: {
-						data: [3][3]u64
-
-						triangles_index := 0
-						for elem, i in elems {
-							if i == 0 || len(elem) == 0 {
-								continue
-							}
-
-							face_triangle_indices: [3]u64
-							indices := strings.split(elem, "/")
-							for index, j in indices {
-								face_triangle_indices[j], ok = strconv.parse_u64(index)
-								if !ok {
-									fmt.printf("[Wavefront] Unable to convert f value: '%v' to u64.", index)
-									assert(false)
-								}
-							}
-							data[triangles_index] = face_triangle_indices
-							triangles_index += 1
-						}
-
-						append(&obj.face_triangles, data)
-					}
-
-					case .Type_Quad: {
-						data: [4][3]u64
-
-						quads_index := 0
-						for elem, i in elems {
-							if i == 0 || len(elem) == 0 {
-								continue
-							}
-
-							face_quads_indices: [3]u64
-							indices := strings.split(elem, "/")
-							for index, j in indices {
-								face_quads_indices[j], ok = strconv.parse_u64(index)
-								if !ok {
-									fmt.printf("[Wavefront] Unable to convert f value: '%v' to u64.", index)
-									assert(false)
-								}
-							}
-							data[quads_index] = face_quads_indices
-							quads_index += 1
-						}
-
-						append(&obj.face_quads, data)
-					}
-				}
+				append(&obj.face, data)
 			}
 			case: {
-				fmt.printf("[Wavefront] Unhandled prefix '%v' in '%v'\n", elems[0], obj_path)
+				fmt.printfln("[Wavefront] Unhandled prefix '%v' in '%v'", elems[0], obj_path)
 			}
 		}
 	}
 
-	print_wavefront_obj(obj)
+	// print_wavefront_obj(obj)
 	return obj
 }
 
 @(private="file")
 print_wavefront_obj :: proc (obj: Wavefront_Object) {
-	fmt.printf("%v.obj\n", obj.name)
-	fmt.printf(" Geometric Vertices:\n")
+	fmt.printfln("%v.obj", obj.name)
+	fmt.printfln(" Geometric Vertices:")
 	for v in obj.vertex {
-		fmt.printf("  v %v\n", v)
+		fmt.printfln("  v %v", v)
 	}
-	fmt.printf(" Texture Coordinates:\n")
+	fmt.printfln(" Texture Coordinates:")
 	for vt in obj.vertex_texture {
-		fmt.printf("  vt %v\n", vt)
+		fmt.printfln("  vt %v", vt)
 	}
-	fmt.printf(" Vertex normals:\n")
+	fmt.printfln(" Vertex normals:")
 	for vn in obj.vertex_normal {
-		fmt.printf("  vn %v\n", vn)
+		fmt.printfln("  vn %v", vn)
 	}
-	fmt.printf(" Face_Type: %v\n", obj.face_type)
-	if obj.face_type == .Type_Triangle {
-		for f in obj.face_triangles {
-			fmt.printf("  f %v\n", f)
-		}
-	} else if obj.face_type == .Type_Quad {
-		for f in obj.face_quads {
-			fmt.printf("  f %v\n", f)
-		}
+	fmt.printfln(" %v Vertices:", obj.face_type)
+	for f in obj.face {
+		fmt.printfln("  f %v", f)
 	}
 }

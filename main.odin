@@ -70,7 +70,7 @@ main :: proc () {
 	blue  := renderer_load_color(0, 0, 1.0, 1.0)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	renderer_load_model("res/Crate.obj", red)
+	renderer_load_model("res/15325_Bookend-HumanSkull_v2.obj", red)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
@@ -121,8 +121,8 @@ application_init :: proc () -> (app: Application_State) {
 
 application_tick :: proc () {
 	// Input and glfw events
-	AppState.input_state.keyboard_previous = AppState.input_state.keyboard_current;
-	AppState.input_state.mouse_previous    = AppState.input_state.mouse_current;
+	AppState.input_state.keyboard_previous = AppState.input_state.keyboard_current
+	AppState.input_state.mouse_previous    = AppState.input_state.mouse_current
 	glfw.PollEvents()
 
 	// Perspective
@@ -184,7 +184,7 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 	context = runtime.default_context()
 
 	if key == glfw.KEY_ESCAPE {
-		fmt.print("Program exited from pressing Escape!\n");
+		fmt.print("Program exited from pressing Escape!\n")
 		glfw.SetWindowShouldClose(window, true)
 	}
 
