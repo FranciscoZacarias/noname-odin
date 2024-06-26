@@ -2,6 +2,7 @@ package odinner
 
 import "core:os"
 import "core:fmt"
+import "core:time"
 import "core:strings"
 
 import gl "vendor:OpenGL"
@@ -10,9 +11,9 @@ import lm "core:math/linalg/glsl"
 
 MSAA_SAMPLES :: 8
 
-Initial_Vertices :: 8192
-Initial_Lines    :: 8192
-Initial_Indices  :: 8192
+Initial_Vertices :: 64_000_000
+Initial_Lines    :: 64_000_000
+Initial_Indices  :: 64_000_000
 Initial_Textures :: 8
 
 Quad :: struct {
@@ -532,6 +533,9 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 renderer_load_model :: proc { renderer_load_model_wavefront }
 
 renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
+	stopwatch: time.Stopwatch
+	time.stopwatch_start(&stopwatch)
+
 	obj := parse_wavefront(obj_path)
 
 	for face in obj.face {
@@ -543,13 +547,19 @@ renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
 			indices := face[i]
 			
 			// Subtract one because Wavefront's indices start at 1.
-			position_index := indices[0] > 0 ? indices[0] - 1 : 0
-			uvw_index      := indices[1] > 0 ? indices[1] - 1 : 0
-			normal_index   := indices[2] > 0 ? indices[2] - 1 : 0
-
-			v  := obj.vertex[position_index]
-			vt :lm.vec3//= obj.vertex_texture[uvw_index]
-			vn :lm.vec3//= obj.vertex_normal[normal_index]
+			v, vt, vn: lm.vec3
+			if indices[0] != 0 {
+				position_index := indices[0] - 1
+				v = obj.vertex[position_index]
+			}
+			if indices[1] != 0 {
+				uvw_index := indices[1] - 1
+				vt = obj.vertex_texture[uvw_index]
+			}
+			if indices[2] != 0 {
+				normal_index := indices[2] - 1
+				vn = obj.vertex_normal[normal_index]
+			}
 
 			vertices[i] = Vertex{ v , Color_White, vt, vn, texture }
 		}
@@ -558,6 +568,10 @@ renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
 			renderer_push_triangle(vertices[0], vertices[2], vertices[3], texture)
 		}
 	}
+
+	time.stopwatch_stop(&stopwatch)
+	duration := time.stopwatch_duration(stopwatch)
+	fmt.printf("[renderer_load_model_wavefront] Time loading %v: %v\n", obj_path, time.duration_milliseconds(duration))
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {

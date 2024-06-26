@@ -70,7 +70,11 @@ main :: proc () {
 	blue  := renderer_load_color(0, 0, 1.0, 1.0)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	renderer_load_model("res/15325_Bookend-HumanSkull_v2.obj", red)
+	if true {
+		renderer_load_model("res/15325_Bookend-HumanSkull_v2.obj", red)
+	} else {
+		renderer_load_model("res/Crate.obj", red)
+	}
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)

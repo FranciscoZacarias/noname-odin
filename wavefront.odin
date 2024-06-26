@@ -149,14 +149,12 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 					}
 
 					v_vt_vn: [3]u64
-
 					if strings.contains(elem, "/") {
 						indices := strings.split(elem, "/")
 						for index, j in indices {
 							v_vt_vn[j], ok = strconv.parse_u64(index)
 							if !ok {
-								fmt.printfln("[Wavefront] Unable to convert f value: '%v' to u64.", index)
-								assert(false)
+								v_vt_vn[j] = 0
 							}
 						}
 						data[vertex_index] = v_vt_vn
@@ -176,7 +174,8 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 		}
 	}
 
-	// print_wavefront_obj(obj)
+	print_wavefront_obj(obj)
+	assert(false)
 	return obj
 }
 
