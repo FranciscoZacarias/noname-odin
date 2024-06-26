@@ -8,8 +8,10 @@ import lm "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-Window_Width  : i32 : 1280
-Window_Height : i32 : 720
+Window_Width  : i32 : 400
+Window_Height : i32 : 400
+
+Color_White : lm.vec4 : {1.0, 1.0, 1.0, 1.0}
 
 Application_State :: struct {
 	window: glfw.WindowHandle,
