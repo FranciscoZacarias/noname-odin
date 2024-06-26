@@ -24,7 +24,7 @@ Quad :: struct {
 Vertex :: struct {
 	position: lm.vec3,
 	color:    lm.vec4,
-	uv:       lm.vec2,
+	uvw:      lm.vec3,
 	normal:   lm.vec3,
 	texture:  u32
 }
@@ -127,7 +127,7 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 			gl.VertexArrayAttribBinding(AppRenderer.triangles_vao, 1, 0)
 
 			gl.EnableVertexArrayAttrib( AppRenderer.triangles_vao, 2)
-			gl.VertexArrayAttribFormat( AppRenderer.triangles_vao, 2, 2, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
+			gl.VertexArrayAttribFormat( AppRenderer.triangles_vao, 2, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uvw)))
 			gl.VertexArrayAttribBinding(AppRenderer.triangles_vao, 2, 0)
 			
 			gl.EnableVertexArrayAttrib( AppRenderer.triangles_vao, 3)
@@ -162,11 +162,11 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 			gl.VertexArrayAttribBinding(AppRenderer.lines_vao, 1, 0)
 
 			gl.EnableVertexArrayAttrib( AppRenderer.lines_vao, 2)
-			gl.VertexArrayAttribFormat( AppRenderer.lines_vao, 2, 2, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
+			gl.VertexArrayAttribFormat( AppRenderer.lines_vao, 2, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uvw)))
 			gl.VertexArrayAttribBinding(AppRenderer.lines_vao, 2, 0)
 
 			gl.EnableVertexArrayAttrib( AppRenderer.lines_vao, 3)
-			gl.VertexArrayAttribFormat( AppRenderer.lines_vao, 3, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, uv)))
+			gl.VertexArrayAttribFormat( AppRenderer.lines_vao, 3, 3, gl.FLOAT, gl.FALSE, u32(offset_of(Vertex, normal)))
 			gl.VertexArrayAttribBinding(AppRenderer.lines_vao, 3, 0)
 
 			gl.EnableVertexArrayAttrib( AppRenderer.lines_vao, 4)
@@ -488,17 +488,17 @@ renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i3
 }
 
 renderer_push_line :: proc (a_position: lm.vec3, b_position: lm.vec3, texture: u32) {
-	a := Vertex { a_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec2{0.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
-	b := Vertex { b_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec2{1.0, 1.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
+	a := Vertex { a_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec3{0.0, 0.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
+	b := Vertex { b_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec3{1.0, 1.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
 	append(&AppRenderer.lines_vertices, a)
 	append(&AppRenderer.lines_vertices, b)
 }
 
-renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uv: lm.vec2, b_position: lm.vec3, b_color: lm.vec4, b_uv: lm.vec2, c_position: lm.vec3, c_color: lm.vec4, c_uv: lm.vec2, texture: u32) {
+renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uvw: lm.vec3, b_position: lm.vec3, b_color: lm.vec4, b_uvw: lm.vec3, c_position: lm.vec3, c_color: lm.vec4, c_uvw: lm.vec3, texture: u32) {
 	triangle_vertices := [3]Vertex {
-		Vertex{ a_position, a_color, a_uv, lm.vec3{1.0, 0.0, 0.0}, texture },
-		Vertex{ b_position, b_color, b_uv, lm.vec3{1.0, 0.0, 0.0}, texture },
-		Vertex{ c_position, c_color, c_uv, lm.vec3{1.0, 0.0, 0.0}, texture }
+		Vertex{ a_position, a_color, a_uvw, lm.vec3{1.0, 0.0, 0.0}, texture },
+		Vertex{ b_position, b_color, b_uvw, lm.vec3{1.0, 0.0, 0.0}, texture },
+		Vertex{ c_position, c_color, c_uvw, lm.vec3{1.0, 0.0, 0.0}, texture }
 	}
 
 	for triangle_vertex in triangle_vertices {
@@ -516,9 +516,6 @@ renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uv: lm.
 			append(&AppRenderer.triangles_indices, index)
 		}
 	}
-
-
-
 }
 
 renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
@@ -526,8 +523,26 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	b := lm.vec3{quad.point.x + quad.width, quad.point.y, quad.point.z}
 	c := lm.vec3{quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z}
 	d := lm.vec3{quad.point.x, quad.point.y + quad.height, quad.point.z}
-	renderer_push_triangle(a, color, lm.vec2{0.0, 0.0}, b, color, lm.vec2{1.0, 0.0}, c, color, lm.vec2{1.0, 1.0}, texture)
-	renderer_push_triangle(c, color, lm.vec2{1.0, 1.0}, d, color, lm.vec2{0.0, 1.0}, a, color, lm.vec2{0.0, 0.0}, texture)
+	renderer_push_triangle(a, color, lm.vec3{0.0, 0.0, 0.0}, b, color, lm.vec3{1.0, 0.0, 0.0}, c, color, lm.vec3{1.0, 1.0, 0.0}, texture)
+	renderer_push_triangle(c, color, lm.vec3{1.0, 1.0, 0.0}, d, color, lm.vec3{0.0, 1.0, 0.0}, a, color, lm.vec3{0.0, 0.0, 0.0}, texture)
+}
+
+renderer_load_model :: proc { renderer_load_model_wavefront }
+
+renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
+	obj := parse_wavefront(obj_path)
+
+	for triangle in obj.face_triangles {
+		v: [3]Vertex
+		for indices, j in triangle {
+			// Subtract one because Wavefront's indices start at 1.
+			position_index := indices[0] - 1
+			uvw_index      := indices[1] - 1
+			normal_index   := indices[2] - 1
+			v[j] = Vertex{ obj.vertex[position_index], Color_White, obj.vertex_texture[uvw_index], obj.vertex_normal[normal_index], texture }
+		}
+		renderer_push_triangle(v[0].position, v[0].color, v[0].uvw, v[1].position, v[1].color, v[1].uvw, v[2].position, v[2].color, v[2].uvw, texture)
+	}
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {

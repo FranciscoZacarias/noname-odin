@@ -43,13 +43,19 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 	for _ in strings.split_lines_iterator(&it) { obj_src_lines += 1 }
 	
 	it = string(obj_source)
+	line_nr: u32
 	for line in strings.split_lines_iterator(&it) {
+		line_nr += 1
 		if len(line) == 0 {
 			continue
 		}
 		
 		elems := strings.split(line, " ")
 		switch elems[0] {
+			case "#": {
+				// This is a comment, we ignore.
+			}
+
 			case "g": {
 				assert(len(elems) == 2, "[Wavefront] The 'g' value had more than 1 value.")
 				assert(obj.name == "",  "[Wavefront] Tried to set 'g' value twice.")
@@ -118,7 +124,8 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						obj.face_quads = make([dynamic][4][3]u64, 0)
 						reserve(&obj.face_quads, int(f32(obj_src_lines)*0.4))
 					} else {
-						assert(false, "[Wavefront] Unexpected number of vertices specified in 'f' value of Wavefront object")
+						fmt.printf("[Wavefront] Unexpected number of vertices specified in 'f' value of Wavefront object. L:%v\n", line_nr)
+						assert(false)
 					}
 				}
 
