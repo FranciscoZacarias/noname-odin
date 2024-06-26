@@ -20,21 +20,19 @@ Wavefront_Object :: struct {
   vertex_normal:  [dynamic]lm.vec3, // Vertex normals
 
 	face_type: Face_Type,
-	// These are indexes for vertex_index/texture_index/normal_index
-	// Which START AT 1!
+	// These START AT 1!
+	// vertex_index/vertex_texture_index/vertex_normal_index
 	face_triangles: [dynamic][3][3]u64,
 	face_quads:     [dynamic][4][3]u64,
 }
 
-parse_wavefront :: proc (obj_path: string) {
+parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 	obj_source, ok := os.read_entire_file(obj_path)
 	if !ok {
 		fmt.println("Unable to load wavefront file: %v", obj_path)
 		assert(false)
 	}
 	defer delete(obj_source)
-
-	obj: Wavefront_Object
 
 	obj.vertex         = make([dynamic]lm.vec3, 0)
 	obj.vertex_texture = make([dynamic]lm.vec3, 0)
@@ -188,6 +186,7 @@ parse_wavefront :: proc (obj_path: string) {
 	}
 
 	print_wavefront_obj(obj)
+	return obj
 }
 
 @(private="file")

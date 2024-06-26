@@ -501,10 +501,10 @@ renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uv: lm.
 		Vertex{ c_position, c_color, c_uv, lm.vec3{1.0, 0.0, 0.0}, texture }
 	}
 
-	for quad_vertex in triangle_vertices {
+	for triangle_vertex in triangle_vertices {
 		exists := false
 		for vertex, index in AppRenderer.triangles_vertices {
-			if vertex == quad_vertex {
+			if vertex == triangle_vertex {
 				append(&AppRenderer.triangles_indices, u32(index))
 				exists = true
 				break;
@@ -512,10 +512,13 @@ renderer_push_triangle :: proc (a_position: lm.vec3, a_color: lm.vec4, a_uv: lm.
 		}
 		if !exists {
 			index := u32(len(AppRenderer.triangles_vertices))
-			append(&AppRenderer.triangles_vertices, quad_vertex)
+			append(&AppRenderer.triangles_vertices, triangle_vertex)
 			append(&AppRenderer.triangles_indices, index)
 		}
 	}
+
+
+
 }
 
 renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
