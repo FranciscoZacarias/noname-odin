@@ -183,7 +183,7 @@ renderer_init :: proc (window_width: i32, window_height: i32) {
 	AppRenderer.triangles_vertices = make([dynamic]Vertex, 0)
 	reserve(&AppRenderer.triangles_vertices, Initial_Vertices)
 	AppRenderer.triangles_indices = make([dynamic]u32, 0)
-	reserve(&AppRenderer.triangles_vertices, Initial_Indices)
+	reserve(&AppRenderer.triangles_indices, Initial_Indices)
 	AppRenderer.lines_vertices = make([dynamic]Vertex, 0)
 	reserve(&AppRenderer.lines_vertices, Initial_Lines)
 	AppRenderer.textures = make([dynamic]u32, 0)
