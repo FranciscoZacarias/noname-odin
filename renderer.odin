@@ -33,7 +33,6 @@ Renderer :: struct {
 	shader: u32,
 
 	triangles_vao: u32,
-	triangles_vao_attributes: u32,
 	triangles_vbo: u32,
 	triangles_ebo: u32,
 	triangles_vertices: [dynamic]Vertex,
