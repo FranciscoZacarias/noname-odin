@@ -8,8 +8,8 @@ import lm "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-Window_Width  : i32 : 400
-Window_Height : i32 : 400
+Window_Width  : i32 : 1280
+Window_Height : i32 : 720
 
 Color_White : lm.vec4 : {1.0, 1.0, 1.0, 1.0}
 
@@ -65,12 +65,13 @@ main :: proc () {
 
 	renderer_init(AppState.window_width, AppState.window_height)
 
-	red   := renderer_load_color(1.0, 0, 0, 0.1)
-	green := renderer_load_color(0, 1.0, 0, 1.0)
-	blue  := renderer_load_color(0, 0, 1.0, 1.0)
+	red   := renderer_load_color(1.0,   0,   0, 1.0)
+	green := renderer_load_color(0,   1.0,   0, 1.0)
+	blue  := renderer_load_color(0,     0, 1.0, 1.0)
+	yell  := renderer_load_color(1.0, 1.0,   0, 0.1)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	renderer_load_model("res/suzanne.obj", red)
+	renderer_load_model("res/max-planck.obj", yell)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
@@ -86,11 +87,7 @@ main :: proc () {
 	for !glfw.WindowShouldClose(AppState.window) {
 		application_tick()
 
-		renderer_begin_frame()
-		{
-
-		}
-		renderer_end_frame(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
+		renderer_draw(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 		
 		glfw.SwapBuffers(AppState.window)
 	}
@@ -107,7 +104,7 @@ application_init :: proc () -> (app: Application_State) {
 	app.projection = lm.identity(lm.mat4)
 	app.view       = lm.identity(lm.mat4)
 	app.near_plane = 0.1
-	app.far_plane  = 100.0
+	app.far_plane  = 10000.0
 	app.window_width  = Window_Width
 	app.window_height = Window_Height
 

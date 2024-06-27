@@ -11,9 +11,9 @@ import lm "core:math/linalg/glsl"
 
 MSAA_SAMPLES :: 8
 
-Initial_Vertices :: 8196
-Initial_Lines    :: 8196
-Initial_Indices  :: 8196
+Initial_Vertices :: 1_000_000
+Initial_Lines    :: 1_000_000
+Initial_Indices  :: 1_000_000
 Initial_Textures :: 8
 
 Quad :: struct {
@@ -424,15 +424,12 @@ renderer_load_color :: proc (r: f32, g: f32, b: f32, a: f32) -> u32 {
 	return texture_handle
 }
 
-renderer_begin_frame :: proc () {
+renderer_draw :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, AppRenderer.msaa_fbo)
-
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
   gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.Enable(gl.DEPTH_TEST)
-}
 
-renderer_end_frame :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, window_height: i32) {
 	gl.UseProgram(AppRenderer.shader)
 	model      := lm.identity(lm.mat4)
 	view       := view
@@ -530,9 +527,7 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	renderer_push_triangle(va, vc, vd, texture)
 }
 
-renderer_load_model :: proc { renderer_load_model_wavefront }
-
-renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
+renderer_load_model :: proc (obj_path: string, texture: u32) {
 	stopwatch: time.Stopwatch
 	time.stopwatch_start(&stopwatch)
 
@@ -548,19 +543,9 @@ renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
 			
 			// Subtract one because Wavefront's indices start at 1.
 			v, vt, vn: lm.vec3
-			if indices[0] != 0 {
-				position_index := indices[0] - 1
-				v = obj.vertex[position_index]
-			}
-			if indices[1] != 0 {
-				uvw_index := indices[1] - 1
-				vt = obj.vertex_texture[uvw_index]
-			}
-			if indices[2] != 0 {
-				normal_index := indices[2] - 1
-				vn = obj.vertex_normal[normal_index]
-			}
-
+			if indices[0] != 0 { v  = obj.vertex[indices[0] - 1] }
+			if indices[1] != 0 { vt = obj.vertex_texture[indices[1] - 1] }
+			if indices[2] != 0 { vn = obj.vertex_normal[indices[2] - 1] }
 			vertices[i] = Vertex{ v , Color_White, vt, vn, texture }
 		}
 		renderer_push_triangle(vertices[0], vertices[1], vertices[2], texture)
@@ -571,7 +556,7 @@ renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
 
 	time.stopwatch_stop(&stopwatch)
 	duration := time.stopwatch_duration(stopwatch)
-	fmt.printf("[renderer_load_model_wavefront] Time loading %v: %.4fms.\n", obj_path, time.duration_milliseconds(duration))
+	fmt.printfln("[renderer_load_model] Loaded %v\n Time: %.4fms.\n Vertices: %v\n Triangles: %v\n", obj_path, time.duration_milliseconds(duration), len(obj.vertex), len(obj.face))
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {

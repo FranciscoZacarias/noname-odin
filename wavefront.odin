@@ -3,6 +3,7 @@ package odinner
 import "core:os"
 import "core:strings"
 import "core:strconv"
+import "core:time"
 import "core:fmt"
 import lm "core:math/linalg/glsl"
 
@@ -28,6 +29,9 @@ Wavefront_Object :: struct {
 }
 
 parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
+	stopwatch: time.Stopwatch
+	time.stopwatch_start(&stopwatch)
+
 	obj_source, ok := os.read_entire_file(obj_path)
 	if !ok {
 		fmt.printfln("Unable to load wavefront file: %v", obj_path)
@@ -43,10 +47,6 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 	reserve(&obj.vertex_normal, Default_Array_Size)
 
 	it := string(obj_source)
-	obj_src_lines := 0
-	for _ in strings.split_lines_iterator(&it) { obj_src_lines += 1 }
-	
-	it = string(obj_source)
 	line_nr: u32
 	for line in strings.split_lines_iterator(&it) {
 		line_nr += 1
@@ -67,55 +67,24 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 				obj.name = elems[1]
 			}
 
-			case "v": {
+			case "v", "vn", "vt": {
 				v: lm.vec3
 				v_index: u32 = 0
-				for elem, index in elems {
-					if index == 0 || len(elem) == 0 {
-						continue
-					} 
+				for i in 1..<len(elems) {
+					elem := elems[i]
 					v[v_index], ok = strconv.parse_f32(elem)
+					v_index += 1
 					if !ok {
 						fmt.printfln("[Wavefront] Unable to  convert v value: '%v' to an f32.", elem)
 						assert(false)
 					}
-					v_index += 1
 				}
-				append(&obj.vertex, v)
-			}
 
-			case "vn": {
-				vn: lm.vec3
-				vn_index: u32 = 0
-				for elem, index in elems {
-					if index == 0 || len(elem) == 0 {
-						continue
-					} 
-					vn[vn_index], ok = strconv.parse_f32(elem)
-					if !ok {
-						fmt.printfln("[Wavefront] Unable to convert vn value: '%v' to an f32.", elem)
-						assert(false)
-					}
-					vn_index += 1
+				switch elems[0] {
+					case "v":  append(&obj.vertex, v)
+					case "vn": append(&obj.vertex_normal, v)
+					case "vt": append(&obj.vertex_texture, v)
 				}
-				append(&obj.vertex_normal, vn)
-			}
-
-			case "vt": {
-				vt: lm.vec3
-				vt_index: u32 = 0
-				for elem, index in elems {
-					if index == 0 || len(elem) == 0 {
-						continue
-					} 
-					vt[vt_index], ok = strconv.parse_f32(elem)
-					if !ok {
-						fmt.printfln("[Wavefront] Unable to convert vt value: '%v' to an f32.", elem)
-						assert(false)
-					}
-					vt_index += 1
-				}
-				append(&obj.vertex_texture, vt)
 			}
 
 			case "f": {
@@ -137,14 +106,17 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						assert(false)
 					}
 					obj.face = make([dynamic][4][3]u64, 0)
-					reserve(&obj.face, int(f32(obj_src_lines)*0.4))
 				}
 
-				data: [4][3]u64
+				face_indices: [4][3]u64
 				vertex_index := 0
 				
 				for elem, i in elems {
 					if i == 0 || len(elem) == 0 {
+						continue
+					}
+					if i > 4 {
+						fmt.printfln("[Wavefront] Model %v will be broken. More than 4 index sets in a face L:%v\n Skipping.", obj_path, line_nr)
 						continue
 					}
 
@@ -157,16 +129,16 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 								v_vt_vn[j] = 0
 							}
 						}
-						data[vertex_index] = v_vt_vn
+						face_indices[vertex_index] = v_vt_vn
 						vertex_index += 1
 					} else {
 						v_vt_vn[0], ok = strconv.parse_u64(elem)
-						data[vertex_index] = v_vt_vn
+						face_indices[vertex_index] = v_vt_vn
 						vertex_index += 1
 					}
 				}
 
-				append(&obj.face, data)
+				append(&obj.face, face_indices)
 			}
 			case: {
 				fmt.printfln("[Wavefront] Unhandled prefix '%v' in '%v'\n %v: '%v'\n", elems[0], obj_path, line_nr, line)
@@ -174,5 +146,8 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 		}
 	}
 
+	time.stopwatch_stop(&stopwatch)
+	duration := time.stopwatch_duration(stopwatch)
+	fmt.printfln("[parse_wavefront] Parsed %v\n Time: %.4fms.\n", obj_path, time.duration_milliseconds(duration))
 	return obj
 }
