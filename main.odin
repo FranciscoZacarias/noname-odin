@@ -71,7 +71,7 @@ main :: proc () {
 	yell  := renderer_load_color(1.0, 1.0,   0, 0.1)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	renderer_load_model("res/max-planck.obj", yell)
+	renderer_load_model("res/suzanne.obj", yell)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
