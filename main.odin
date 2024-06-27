@@ -68,7 +68,7 @@ main :: proc () {
 	red   := renderer_load_color(1.0,   0,   0, 1.0)
 	green := renderer_load_color(0,   1.0,   0, 1.0)
 	blue  := renderer_load_color(0,     0, 1.0, 1.0)
-	yell  := renderer_load_color(1.0, 1.0,   0, 0.1)
+	yell  := renderer_load_color(1.0, 1.0,   0, 0.7)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
 	renderer_load_model("res/suzanne.obj", yell)

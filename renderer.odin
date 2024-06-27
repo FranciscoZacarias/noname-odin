@@ -528,24 +528,21 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 }
 
 renderer_load_model :: proc (obj_path: string, texture: u32) {
+	obj := parse_wavefront(obj_path)
+
 	stopwatch: time.Stopwatch
 	time.stopwatch_start(&stopwatch)
 
-	obj := parse_wavefront(obj_path)
-
 	for face in obj.face {
 		is_quad := obj.face_type == .Type_Quad
-		
 		vertices: [4]Vertex
 		vertices_count := is_quad ? 3 : 4
 		for i in 0..<vertices_count {
 			indices := face[i]
-			
-			// Subtract one because Wavefront's indices start at 1.
 			v, vt, vn: lm.vec3
-			if indices[0] != 0 { v  = obj.vertex[indices[0] - 1] }
-			if indices[1] != 0 { vt = obj.vertex_texture[indices[1] - 1] }
-			if indices[2] != 0 { vn = obj.vertex_normal[indices[2] - 1] }
+			if indices.fields.v  != 0 { v  = obj.vertex[indices.fields.v - 1] }
+			if indices.fields.vn != 0 { vt = obj.vertex_texture[indices.fields.vn - 1] }
+			if indices.fields.vt != 0 { vn = obj.vertex_normal[indices.fields.vt - 1] }
 			vertices[i] = Vertex{ v , Color_White, vt, vn, texture }
 		}
 		renderer_push_triangle(vertices[0], vertices[1], vertices[2], texture)

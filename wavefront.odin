@@ -15,17 +15,20 @@ Face_Type :: enum {
 	Type_Quad,
 }
 
-Wavefront_Object :: struct {
-	name: string,
+Face_Vertex_Indices :: struct #raw_union {
+	indices: [3]u64,
+	fields: struct { 
+		v, vn, vt: u64,
+	}
+}
 
+Wavefront_Object :: struct {
   vertex:         [dynamic]lm.vec3, // Geometric Vertices
   vertex_texture: [dynamic]lm.vec3, // Texture coordinates
   vertex_normal:  [dynamic]lm.vec3, // Vertex normals
 
 	face_type: Face_Type,
-	// These START AT 1!
-	// vertex_index/vertex_texture_index/vertex_normal_index
-	face: [dynamic][4][3]u64,
+	face: [dynamic][4]Face_Vertex_Indices,
 }
 
 parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
@@ -40,11 +43,9 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 	defer delete(obj_source)
 
 	obj.vertex = make([dynamic]lm.vec3, 0)
-	reserve(&obj.vertex, Default_Array_Size)
 	obj.vertex_texture = make([dynamic]lm.vec3, 0)
-	reserve(&obj.vertex_texture, Default_Array_Size)
 	obj.vertex_normal	= make([dynamic]lm.vec3, 0)
-	reserve(&obj.vertex_normal, Default_Array_Size)
+	obj.face = make([dynamic][4]Face_Vertex_Indices, 0)
 
 	it := string(obj_source)
 	line_nr: u32
@@ -56,34 +57,25 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 		
 		elems := strings.split(line, " ")
 		switch elems[0] {
-			case "#": {
-				// This is a comment, we ignore.
-			}
-
-			case "g": {
-				if obj.name != "" {
-					fmt.println("[Wavefront] The 'g' value was set more than once.")
-				}
-				obj.name = elems[1]
-			}
+			case "#": // This is a comment, we ignore
+			case "g": // This is the name, we ignore
 
 			case "v", "vn", "vt": {
-				v: lm.vec3
+				vertex: lm.vec3
 				v_index: u32 = 0
 				for i in 1..<len(elems) {
 					elem := elems[i]
-					v[v_index], ok = strconv.parse_f32(elem)
+					vertex[v_index], ok = strconv.parse_f32(elem)
 					v_index += 1
 					if !ok {
 						fmt.printfln("[Wavefront] Unable to  convert v value: '%v' to an f32.", elem)
 						assert(false)
 					}
 				}
-
 				switch elems[0] {
-					case "v":  append(&obj.vertex, v)
-					case "vn": append(&obj.vertex_normal, v)
-					case "vt": append(&obj.vertex_texture, v)
+					case "v":  append(&obj.vertex, vertex)
+					case "vn": append(&obj.vertex_normal, vertex)
+					case "vt": append(&obj.vertex_texture, vertex)
 				}
 			}
 
@@ -96,7 +88,6 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						}
 						vertex_count += 1
 					}
-
 					if vertex_count == 3 {
 						obj.face_type = .Type_Triangle
 					} else if vertex_count == 4 {
@@ -105,10 +96,9 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						fmt.printfln("[Wavefront] Unexpected number of vertices '%v' specified in 'f' value of Wavefront object. L:%v", len(elems), line_nr)
 						assert(false)
 					}
-					obj.face = make([dynamic][4][3]u64, 0)
 				}
 
-				face_indices: [4][3]u64
+				face_indices: [4]Face_Vertex_Indices
 				vertex_index := 0
 				
 				for elem, i in elems {
@@ -120,20 +110,20 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						continue
 					}
 
-					v_vt_vn: [3]u64
+					f_indices: Face_Vertex_Indices
 					if strings.contains(elem, "/") {
 						indices := strings.split(elem, "/")
 						for index, j in indices {
-							v_vt_vn[j], ok = strconv.parse_u64(index)
+							f_indices.indices[j], ok = strconv.parse_u64(index)
 							if !ok {
-								v_vt_vn[j] = 0
+								f_indices.indices[j] = 0
 							}
 						}
-						face_indices[vertex_index] = v_vt_vn
+						face_indices[vertex_index] = f_indices
 						vertex_index += 1
 					} else {
-						v_vt_vn[0], ok = strconv.parse_u64(elem)
-						face_indices[vertex_index] = v_vt_vn
+						f_indices.fields.v, ok = strconv.parse_u64(elem)
+						face_indices[vertex_index] = f_indices
 						vertex_index += 1
 					}
 				}
