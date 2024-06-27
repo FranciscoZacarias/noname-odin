@@ -11,9 +11,9 @@ import lm "core:math/linalg/glsl"
 
 MSAA_SAMPLES :: 8
 
-Initial_Vertices :: 64_000_000
-Initial_Lines    :: 64_000_000
-Initial_Indices  :: 64_000_000
+Initial_Vertices :: 8196
+Initial_Lines    :: 8196
+Initial_Indices  :: 8196
 Initial_Textures :: 8
 
 Quad :: struct {
