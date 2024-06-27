@@ -65,16 +65,12 @@ main :: proc () {
 
 	renderer_init(AppState.window_width, AppState.window_height)
 
-	red   := renderer_load_color(1.0, 0, 0, 1.0)
+	red   := renderer_load_color(1.0, 0, 0, 0.1)
 	green := renderer_load_color(0, 1.0, 0, 1.0)
 	blue  := renderer_load_color(0, 0, 1.0, 1.0)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	if true {
-		renderer_load_model("res/15325_Bookend-HumanSkull_v2.obj", red)
-	} else {
-		renderer_load_model("res/Crate.obj", red)
-	}
+	renderer_load_model("res/suzanne.obj", red)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)

@@ -571,7 +571,7 @@ renderer_load_model_wavefront :: proc (obj_path: string, texture: u32) {
 
 	time.stopwatch_stop(&stopwatch)
 	duration := time.stopwatch_duration(stopwatch)
-	fmt.printf("[renderer_load_model_wavefront] Time loading %v: %v\n", obj_path, time.duration_milliseconds(duration))
+	fmt.printf("[renderer_load_model_wavefront] Time loading %v: %.4fms.\n", obj_path, time.duration_milliseconds(duration))
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {

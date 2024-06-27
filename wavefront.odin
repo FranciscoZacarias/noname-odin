@@ -169,33 +169,10 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 				append(&obj.face, data)
 			}
 			case: {
-				fmt.printfln("[Wavefront] Unhandled prefix '%v' in '%v'", elems[0], obj_path)
+				fmt.printfln("[Wavefront] Unhandled prefix '%v' in '%v'\n %v: '%v'\n", elems[0], obj_path, line_nr, line)
 			}
 		}
 	}
 
-	print_wavefront_obj(obj)
-	assert(false)
 	return obj
-}
-
-@(private="file")
-print_wavefront_obj :: proc (obj: Wavefront_Object) {
-	fmt.printfln("%v.obj", obj.name)
-	fmt.printfln(" Geometric Vertices:")
-	for v in obj.vertex {
-		fmt.printfln("  v %v", v)
-	}
-	fmt.printfln(" Texture Coordinates:")
-	for vt in obj.vertex_texture {
-		fmt.printfln("  vt %v", vt)
-	}
-	fmt.printfln(" Vertex normals:")
-	for vn in obj.vertex_normal {
-		fmt.printfln("  vn %v", vn)
-	}
-	fmt.printfln(" %v Vertices:", obj.face_type)
-	for f in obj.face {
-		fmt.printfln("  f %v", f)
-	}
 }
