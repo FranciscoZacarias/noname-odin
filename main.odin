@@ -72,10 +72,8 @@ main :: proc () {
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
 	suzanne_mesh := mesh_from_wavefront("res/suzanne.obj")
-	suzanne := push_entity(suzanne_mesh, yell)
+	suzanne := game_state_push_entity(suzanne_mesh, yell)
 	renderer_push_entity(suzanne)
-
-	fmt.printfln(" %v ", suzanne.transform.rotation)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
@@ -91,18 +89,7 @@ main :: proc () {
 	for !glfw.WindowShouldClose(AppState.window) {
 		application_tick()
 
-		{
-			stopwatch: time.Stopwatch
-			time.stopwatch_start(&stopwatch)
-			
-			renderer_draw(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
-
-			time.stopwatch_stop(&stopwatch)
-			duration := time.stopwatch_duration(stopwatch)
-			if is_key_pressed(AppState.input_state, .Key_SPACE) {
-				fmt.printfln("[renderer_draw] Time: %.4fms.\n", time.duration_milliseconds(duration))
-			}
-		}
+		renderer_draw(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
 
 		glfw.SwapBuffers(AppState.window)
 	}

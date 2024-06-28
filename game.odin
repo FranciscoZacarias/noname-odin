@@ -10,7 +10,7 @@ GameState: Game_State
 
 Transform :: struct {
   position: lm.vec3,
-  rotation: quaternion64,
+  rotation: lm.quat,
   scale:    lm.vec3,
 }
 
@@ -26,12 +26,20 @@ game_state_init :: proc () {
   reserve(&GameState.entities, 32)
 }
 
-push_entity :: proc (mesh: Mesh, texture: u32) -> (obj: Entity) {
+game_state_push_entity :: proc (mesh: Mesh, texture: u32) -> (obj: Entity) {
   obj.id = u32(len(GameState.entities))
   obj.mesh = mesh
   obj.texture = texture
+  obj.transform.scale = lm.vec3{1.0, 1.0, 1.0}
   obj.transform.rotation.w = 1
   append(&GameState.entities, obj)
   return obj
 }
 
+get_model_matrix_from_entity :: proc (entity: Entity) -> (model: lm.mat4) {
+  translation := lm.mat4Translate(entity.transform.position)
+  rotation    := lm.mat4FromQuat(entity.transform.rotation)
+  scale       := lm.mat4Scale(entity.transform.scale)
+  model = translation * rotation * scale
+  return model
+}

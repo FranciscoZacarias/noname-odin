@@ -431,7 +431,7 @@ renderer_draw :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, wi
   gl.Enable(gl.DEPTH_TEST)
 
 	gl.UseProgram(AppRenderer.shader)
-	model      := lm.identity(lm.mat4)
+	model      := get_model_matrix_from_entity(GameState.entities[0])
 	view       := view
 	projection := projection
 	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
