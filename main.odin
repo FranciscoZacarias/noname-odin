@@ -2,6 +2,7 @@ package odinner
 
 import "base:runtime"
 
+import "core:time"
 import "core:fmt"
 import lm "core:math/linalg/glsl"
 
@@ -10,6 +11,9 @@ import gl "vendor:OpenGL"
 
 Window_Width  : i32 : 1280
 Window_Height : i32 : 720
+
+Far_Plane  :: 1000.0
+Near_Plane :: 0.1
 
 Color_White : lm.vec4 : {1.0, 1.0, 1.0, 1.0}
 
@@ -35,12 +39,6 @@ Application_State :: struct {
 
 AppState: Application_State
 
-Square :: struct {
-	quad:    Quad,
-	color:   lm.vec4,
-	texture: u32
-}
-
 main :: proc () {
 	glfw.SetErrorCallback(error_callback)
 
@@ -57,6 +55,7 @@ main :: proc () {
 	AppState = application_init()
 
 	glfw.MakeContextCurrent(AppState.window)
+	glfw.SwapInterval(0)
 	glfw.SetKeyCallback(AppState.window, key_callback)
 	glfw.SetFramebufferSizeCallback(AppState.window, size_callback)
 	glfw.SetCursorPosCallback(AppState.window, cursor_callback)
@@ -64,6 +63,7 @@ main :: proc () {
 	gl.load_up_to(4, 6, set_proc_address) 
 
 	renderer_init(AppState.window_width, AppState.window_height)
+	game_state_init()
 
 	red   := renderer_load_color(1.0,   0,   0, 1.0)
 	green := renderer_load_color(0,   1.0,   0, 1.0)
@@ -71,7 +71,11 @@ main :: proc () {
 	yell  := renderer_load_color(1.0, 1.0,   0, 0.7)
 	kakashi_eye := renderer_load_texture("res/kakashi.png")
 
-	renderer_load_model("res/suzanne.obj", yell)
+	suzanne_mesh := mesh_from_wavefront("res/suzanne.obj")
+	suzanne := push_entity(suzanne_mesh, yell)
+	renderer_push_entity(suzanne)
+
+	fmt.printfln(" %v ", suzanne.transform.rotation)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
@@ -87,8 +91,19 @@ main :: proc () {
 	for !glfw.WindowShouldClose(AppState.window) {
 		application_tick()
 
-		renderer_draw(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
-		
+		{
+			stopwatch: time.Stopwatch
+			time.stopwatch_start(&stopwatch)
+			
+			renderer_draw(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
+
+			time.stopwatch_stop(&stopwatch)
+			duration := time.stopwatch_duration(stopwatch)
+			if is_key_pressed(AppState.input_state, .Key_SPACE) {
+				fmt.printfln("[renderer_draw] Time: %.4fms.\n", time.duration_milliseconds(duration))
+			}
+		}
+
 		glfw.SwapBuffers(AppState.window)
 	}
 }
@@ -103,8 +118,8 @@ application_init :: proc () -> (app: Application_State) {
 	app.camera     = camera_init()
 	app.projection = lm.identity(lm.mat4)
 	app.view       = lm.identity(lm.mat4)
-	app.near_plane = 0.1
-	app.far_plane  = 10000.0
+	app.far_plane  = Far_Plane
+	app.near_plane = Near_Plane
 	app.window_width  = Window_Width
 	app.window_height = Window_Height
 

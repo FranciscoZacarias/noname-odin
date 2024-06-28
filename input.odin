@@ -10,7 +10,6 @@ Mouse_Button :: enum {
   Button_COUNT,
 }
 
-// NOTE(fz): These match GLFW. Needs to be re worked if we abstract this input system
 Keyboard_Key :: enum {
   Key_SPACE         = 32,
   Key_APOSTROPHE    = 39, /* ' */

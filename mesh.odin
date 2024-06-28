@@ -22,7 +22,9 @@ Face_Vertex_Indices :: struct #raw_union {
 	}
 }
 
-Wavefront_Object :: struct {
+Mesh :: struct {
+	name: string,
+
   vertex:         [dynamic]lm.vec3, // Geometric Vertices
   vertex_texture: [dynamic]lm.vec3, // Texture coordinates
   vertex_normal:  [dynamic]lm.vec3, // Vertex normals
@@ -31,7 +33,7 @@ Wavefront_Object :: struct {
 	face: [dynamic][4]Face_Vertex_Indices,
 }
 
-parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
+mesh_from_wavefront :: proc (obj_path: string) -> (obj: Mesh) {
 	stopwatch: time.Stopwatch
 	time.stopwatch_start(&stopwatch)
 
@@ -58,7 +60,10 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 		elems := strings.split(line, " ")
 		switch elems[0] {
 			case "#": // This is a comment, we ignore
-			case "g": // This is the name, we ignore
+
+			case "g": {
+				obj.name = elems[1]
+			}
 
 			case "v", "vn", "vt": {
 				vertex: lm.vec3
@@ -106,7 +111,7 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						continue
 					}
 					if i > 4 {
-						fmt.printfln("[Wavefront] Model %v will be broken. More than 4 index sets in a face L:%v\n Skipping.", obj_path, line_nr)
+						fmt.printfln("[Wavefront] We don't support complex polygons in OBJ files. Model %v will be broken. More than 4 index sets in a face L:%v\n Skipping.", obj_path, line_nr)
 						continue
 					}
 
@@ -115,9 +120,6 @@ parse_wavefront :: proc (obj_path: string) -> (obj: Wavefront_Object){
 						indices := strings.split(elem, "/")
 						for index, j in indices {
 							f_indices.indices[j], ok = strconv.parse_u64(index)
-							if !ok {
-								f_indices.indices[j] = 0
-							}
 						}
 						face_indices[vertex_index] = f_indices
 						vertex_index += 1

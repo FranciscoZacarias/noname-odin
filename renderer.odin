@@ -527,33 +527,31 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	renderer_push_triangle(va, vc, vd, texture)
 }
 
-renderer_load_model :: proc (obj_path: string, texture: u32) {
-	obj := parse_wavefront(obj_path)
-
+renderer_push_entity :: proc (entity: Entity) {
 	stopwatch: time.Stopwatch
 	time.stopwatch_start(&stopwatch)
 
-	for face in obj.face {
-		is_quad := obj.face_type == .Type_Quad
+	is_quad := entity.mesh.face_type == .Type_Quad
+	for face in entity.mesh.face {
 		vertices: [4]Vertex
 		vertices_count := is_quad ? 3 : 4
 		for i in 0..<vertices_count {
 			indices := face[i]
 			v, vt, vn: lm.vec3
-			if indices.fields.v  != 0 { v  = obj.vertex[indices.fields.v - 1] }
-			if indices.fields.vn != 0 { vt = obj.vertex_texture[indices.fields.vn - 1] }
-			if indices.fields.vt != 0 { vn = obj.vertex_normal[indices.fields.vt - 1] }
-			vertices[i] = Vertex{ v , Color_White, vt, vn, texture }
+			if indices.fields.v  != 0 { v  = entity.mesh.vertex[indices.fields.v - 1] }
+			if indices.fields.vn != 0 { vt = entity.mesh.vertex_texture[indices.fields.vn - 1] }
+			if indices.fields.vt != 0 { vn = entity.mesh.vertex_normal[indices.fields.vt - 1] }
+			vertices[i] = Vertex{ v , Color_White, vt, vn, entity.texture }
 		}
-		renderer_push_triangle(vertices[0], vertices[1], vertices[2], texture)
+		renderer_push_triangle(vertices[0], vertices[1], vertices[2], entity.texture)
 		if is_quad {
-			renderer_push_triangle(vertices[0], vertices[2], vertices[3], texture)
+			renderer_push_triangle(vertices[0], vertices[2], vertices[3], entity.texture)
 		}
 	}
 
 	time.stopwatch_stop(&stopwatch)
 	duration := time.stopwatch_duration(stopwatch)
-	fmt.printfln("[renderer_load_model] Loaded %v\n Time: %.4fms.\n Vertices: %v\n Triangles: %v\n", obj_path, time.duration_milliseconds(duration), len(obj.vertex), len(obj.face))
+	fmt.printfln("[renderer_load_model] Loaded %v\n Time: %.4fms.\n Vertices: %v\n Triangles: %v\n", entity.mesh.name, time.duration_milliseconds(duration), len(entity.mesh.vertex), len(entity.mesh.face))
 }
 
 renderer_set_uniform_mat4fv :: proc (program: u32, uniform: string, mat: ^lm.mat4) {
