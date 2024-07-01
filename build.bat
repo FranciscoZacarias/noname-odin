@@ -1,1 +1,1 @@
-odin build ./source -vet-shadowing -warnings-as-errors -o:none -debug -show-timings
+odin build source -vet-shadowing -warnings-as-errors -o:none -debug -show-timings

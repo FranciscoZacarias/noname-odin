@@ -2,10 +2,16 @@
 !*.odin
 !*.gitignore
 !.gitignore
+
 !source/
+!source/**
+!*.dll
+
 !shader/
 !shader/*.glsl
+
 !run.bat
 !build.bat
+
 !resources/
 !resources/**
