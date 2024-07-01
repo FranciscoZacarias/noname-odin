@@ -2,7 +2,6 @@ package odinner
 
 import "base:runtime"
 
-import "core:time"
 import "core:fmt"
 import lm "core:math/linalg/glsl"
 
@@ -17,7 +16,7 @@ Near_Plane :: 0.1
 
 Color_White : lm.vec4 : {1.0, 1.0, 1.0, 1.0}
 
-Application_State :: struct {
+Window :: struct {
 	window: glfw.WindowHandle,
 
 	time:       f32,
@@ -37,32 +36,11 @@ Application_State :: struct {
 	window_height: i32,
 }
 
-AppState: Application_State
+MainWindow: Window
 
 main :: proc () {
-	glfw.SetErrorCallback(error_callback)
-
-	if !glfw.Init() {
-		fmt.eprintln("GLFW has failed to load.")
-		return
-	}
-
-	glfw.WindowHint(glfw.RESIZABLE, 1)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 4)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 6)
-	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-
-	AppState = application_init()
-
-	glfw.MakeContextCurrent(AppState.window)
-	glfw.SwapInterval(0)
-	glfw.SetKeyCallback(AppState.window, key_callback)
-	glfw.SetFramebufferSizeCallback(AppState.window, size_callback)
-	glfw.SetCursorPosCallback(AppState.window, cursor_callback)
-	glfw.SetMouseButtonCallback(AppState.window, button_callback)
-	gl.load_up_to(4, 6, set_proc_address) 
-
-	renderer_init(AppState.window_width, AppState.window_height)
+	MainWindow = window_init()
+	renderer_init(MainWindow.window_width, MainWindow.window_height)
 	game_state_init()
 
 	red   := renderer_load_color(1.0,   0,   0, 1.0)
@@ -86,96 +64,112 @@ main :: proc () {
 	q1 := Quad{lm.vec3{-2.0, 2.0, -2.0}, 1, 1}
 	renderer_push_quad(q1, lm.vec4{1.0, 1.0, 1.0, 1.0}, kakashi_eye)
 
-	for !glfw.WindowShouldClose(AppState.window) {
+	for !glfw.WindowShouldClose(MainWindow.window) {
 		application_tick()
 
-		renderer_draw(AppState.view, AppState.projection, AppState.window_width, AppState.window_height)
+		renderer_draw(MainWindow.view, MainWindow.projection, MainWindow.window_width, MainWindow.window_height)
 
-		glfw.SwapBuffers(AppState.window)
+		glfw.SwapBuffers(MainWindow.window)
 	}
 }
 
-application_init :: proc () -> (app: Application_State) {
-	app.window = glfw.CreateWindow(Window_Width, Window_Height, "noname-odin", nil, nil)
-	if app.window == nil {
+window_init :: proc () -> (window: Window) {
+	glfw.SetErrorCallback(error_callback)
+	if !glfw.Init() {
+		fmt.eprintln("GLFW has failed to load.")
+		return
+	}
+
+	window.window = glfw.CreateWindow(Window_Width, Window_Height, "noname-odin", nil, nil)
+	if window.window == nil {
 		fmt.eprintln("GLFW has failed to load the window.")
 		assert(false)
 	}
 
-	app.camera     = camera_init()
-	app.projection = lm.identity(lm.mat4)
-	app.view       = lm.identity(lm.mat4)
-	app.far_plane  = Far_Plane
-	app.near_plane = Near_Plane
-	app.window_width  = Window_Width
-	app.window_height = Window_Height
+	window.camera     = camera_init()
+	window.projection = lm.identity(lm.mat4)
+	window.view       = lm.identity(lm.mat4)
+	window.far_plane  = Far_Plane
+	window.near_plane = Near_Plane
+	window.window_width  = Window_Width
+	window.window_height = Window_Height
 
-	app.input_state.mouse_current.coords.x  = Window_Width /2
-	app.input_state.mouse_current.coords.y  = Window_Height/2
-	app.input_state.mouse_previous.coords.x = Window_Width /2
-	app.input_state.mouse_previous.coords.y = Window_Height/2
+	window.input_state.mouse_current.coords.x  = Window_Width /2
+	window.input_state.mouse_current.coords.y  = Window_Height/2
+	window.input_state.mouse_previous.coords.x = Window_Width /2
+	window.input_state.mouse_previous.coords.y = Window_Height/2
 
-	return app
+	glfw.MakeContextCurrent(window.window)
+	glfw.SwapInterval(0)
+	glfw.SetKeyCallback(window.window, key_callback)
+	glfw.SetFramebufferSizeCallback(window.window, size_callback)
+	glfw.SetCursorPosCallback(window.window, cursor_callback)
+	glfw.SetMouseButtonCallback(window.window, button_callback)
+	gl.load_up_to(4, 6, set_proc_address)
+
+	fmt.printfln("[%v]: %v\n", gl.GetString(gl.VENDOR), gl.GetString(gl.RENDERER))
+
+	return window
 }
 
 application_tick :: proc () {
 	// Input and glfw events
-	AppState.input_state.keyboard_previous = AppState.input_state.keyboard_current
-	AppState.input_state.mouse_previous    = AppState.input_state.mouse_current
+	MainWindow.input_state.keyboard_previous = MainWindow.input_state.keyboard_current
+	MainWindow.input_state.mouse_previous    = MainWindow.input_state.mouse_current
 	glfw.PollEvents()
 
 	// Perspective
-	AppState.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(AppState.window_width) / f32(AppState.window_height), AppState.near_plane, AppState.far_plane)
-	AppState.view       = lm.mat4LookAt(AppState.camera.position, AppState.camera.position + AppState.camera.front, AppState.camera.up)
+	MainWindow.projection = lm.mat4Perspective(lm.radians(f32(45)), f32(MainWindow.window_width) / f32(MainWindow.window_height), MainWindow.near_plane, MainWindow.far_plane)
+	MainWindow.view       = lm.mat4LookAt(MainWindow.camera.position, MainWindow.camera.position + MainWindow.camera.front, MainWindow.camera.up)
 
 	// Time 
-	AppState.time       = f32(glfw.GetTime())
-  AppState.delta_time = AppState.time - AppState.last_time
-  AppState.last_time  = AppState.time
+	MainWindow.time       = f32(glfw.GetTime())
+  MainWindow.delta_time = MainWindow.time - MainWindow.last_time
+  MainWindow.last_time  = MainWindow.time
 
 	// Camera
-	if is_button_down(AppState.input_state, .Button_RIGHT) {
-		if is_button_released(AppState.input_state, .Button_RIGHT) {
-			AppState.input_state.mouse_previous.coords = AppState.input_state.mouse_current.coords
+	if is_button_down(MainWindow.input_state, .Button_RIGHT) {
+		if is_button_released(MainWindow.input_state, .Button_RIGHT) {
+			MainWindow.input_state.mouse_previous.coords = MainWindow.input_state.mouse_current.coords
 		}
 
-		AppState.camera.mode = .Mode_Fly
-		camera_speed: f32 = Camera_Speed * AppState.delta_time
-		if is_key_down(AppState.input_state, .Key_W) {
-			delta: lm.vec3 = AppState.camera.front * camera_speed
-			AppState.camera.position = AppState.camera.position + delta
+		MainWindow.camera.mode = .Mode_Fly
+		camera_speed: f32 = Camera_Speed * MainWindow.delta_time
+		if is_key_down(MainWindow.input_state, .Key_W) {
+			delta: lm.vec3 = MainWindow.camera.front * camera_speed
+			MainWindow.camera.position = MainWindow.camera.position + delta
 		}
-		if is_key_down(AppState.input_state, .Key_S) {
-			delta: lm.vec3 = AppState.camera.front * camera_speed
-			AppState.camera.position = AppState.camera.position - delta
+		if is_key_down(MainWindow.input_state, .Key_S) {
+			delta: lm.vec3 = MainWindow.camera.front * camera_speed
+			MainWindow.camera.position = MainWindow.camera.position - delta
 		}
-		if is_key_down(AppState.input_state, .Key_D) {
-			cross: lm.vec3 = lm.cross_vec3(AppState.camera.front, AppState.camera.up)
+		if is_key_down(MainWindow.input_state, .Key_D) {
+			cross: lm.vec3 = lm.cross_vec3(MainWindow.camera.front, MainWindow.camera.up)
 			delta: lm.vec3 = cross * camera_speed
-			AppState.camera.position = AppState.camera.position + delta
+			MainWindow.camera.position = MainWindow.camera.position + delta
 		}
-		if is_key_down(AppState.input_state, .Key_A) {
-			cross: lm.vec3 = lm.cross_vec3(AppState.camera.front, AppState.camera.up)
+		if is_key_down(MainWindow.input_state, .Key_A) {
+			cross: lm.vec3 = lm.cross_vec3(MainWindow.camera.front, MainWindow.camera.up)
 			delta: lm.vec3 = cross * camera_speed
-			AppState.camera.position = AppState.camera.position - delta
+			MainWindow.camera.position = MainWindow.camera.position - delta
 		}
-		if is_key_down(AppState.input_state, .Key_Q) {
-			AppState.camera.position.y -= camera_speed
+		if is_key_down(MainWindow.input_state, .Key_Q) {
+			MainWindow.camera.position.y -= camera_speed
 		}
-		if is_key_down(AppState.input_state, .Key_E) {
-			AppState.camera.position.y += camera_speed
+		if is_key_down(MainWindow.input_state, .Key_E) {
+			MainWindow.camera.position.y += camera_speed
 		}
 
-		x_offset := AppState.input_state.mouse_current.coords.x - AppState.input_state.mouse_previous.coords.x
-		y_offset := AppState.input_state.mouse_previous.coords.y - AppState.input_state.mouse_current.coords.y
+		x_offset := MainWindow.input_state.mouse_current.coords.x - MainWindow.input_state.mouse_previous.coords.x
+		y_offset := MainWindow.input_state.mouse_previous.coords.y - MainWindow.input_state.mouse_current.coords.y
 
-		AppState.camera.yaw   += f32(x_offset) * Camera_Sensitivity
+		MainWindow.camera.yaw   += f32(x_offset) * Camera_Sensitivity
 		pitch := f32(y_offset) * Camera_Sensitivity
-		AppState.camera.pitch += clamp(pitch, -89.0, 89.0)
+		MainWindow.camera.pitch += clamp(pitch, -89.0, 89.0)
 
-		camera_update(&AppState.camera)
+		camera_update(&MainWindow.camera)
 	} else {
-		AppState.camera.mode = .Mode_Select
+		MainWindow.camera.mode = .Mode_Select
 	}
 }
 
@@ -189,8 +183,8 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 
 	if key >= 32 && key <= 248 {
 		is_key_pressed: bool = (action != glfw.RELEASE)
-		if AppState.input_state.keyboard_current.keys[key] != is_key_pressed {
-			AppState.input_state.keyboard_current.keys[key] = is_key_pressed
+		if MainWindow.input_state.keyboard_current.keys[key] != is_key_pressed {
+			MainWindow.input_state.keyboard_current.keys[key] = is_key_pressed
 		}
 	}
 }
@@ -205,23 +199,23 @@ button_callback :: proc "c" (window: glfw.WindowHandle, button, action, mods: i3
 			glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_NORMAL)
 		}
 
-		if AppState.input_state.mouse_current.buttons[button] != is_button_pressed {
-			AppState.input_state.mouse_current.buttons[button] = is_button_pressed
+		if MainWindow.input_state.mouse_current.buttons[button] != is_button_pressed {
+			MainWindow.input_state.mouse_current.buttons[button] = is_button_pressed
 		}
 	}
 }
 
 cursor_callback :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {
-	AppState.input_state.mouse_current.coords.x = i32(xpos)
-	AppState.input_state.mouse_current.coords.y = i32(ypos)
+	MainWindow.input_state.mouse_current.coords.x = i32(xpos)
+	MainWindow.input_state.mouse_current.coords.y = i32(ypos)
 }
 
 size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
 	context = runtime.default_context()
 	gl.Viewport(0, 0, width, height)
-	AppState.window_width  = width
-	AppState.window_height = height
-	renderer_on_resize(AppState.window_width, AppState.window_height)
+	MainWindow.window_width  = width
+	MainWindow.window_height = height
+	renderer_on_resize(MainWindow.window_width, MainWindow.window_height)
 }
 
 error_callback :: proc "c" (code: i32, desc: cstring) {
