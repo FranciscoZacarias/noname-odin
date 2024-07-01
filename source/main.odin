@@ -52,7 +52,7 @@ main :: proc () {
 	kakashi_eye := renderer_load_texture("resources/kakashi.png")
 
 	suzanne_from_assimp := ai.import_file("resources/suzanne.obj", u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
-	if suzanne_from_assimp == nil || suzanne_from_assimp.mRootNode == nil || (suzanne_from_assimp.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) == 1 {
+	if suzanne_from_assimp == nil || suzanne_from_assimp.mRootNode == nil || (suzanne_from_assimp.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) != 0 {
 		fmt.eprintln("Assimp failed to load resources/suzanne.obj")
 		assert(false)
 	}
