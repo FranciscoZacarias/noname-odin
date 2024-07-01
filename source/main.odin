@@ -47,10 +47,11 @@ main :: proc () {
 	green := renderer_load_color(0,   1.0,   0, 1.0)
 	blue  := renderer_load_color(0,     0, 1.0, 1.0)
 	yell  := renderer_load_color(1.0, 1.0,   0, 0.7)
-	kakashi_eye := renderer_load_texture("res/kakashi.png")
+	kakashi_eye := renderer_load_texture("resources/kakashi.png")
 
-	suzanne_mesh := mesh_from_wavefront("res/suzanne.obj")
+	suzanne_mesh := mesh_from_wavefront("resources/suzanne.obj")
 	suzanne := game_state_push_entity(suzanne_mesh, yell)
+
 	renderer_push_entity(suzanne)
 
 	// XYZ axis
