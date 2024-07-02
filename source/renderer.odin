@@ -24,11 +24,35 @@ Quad :: struct {
 }
 
 Vertex :: struct {
-	position: lm.vec3,
-	color:    lm.vec4,
-	uvw:      lm.vec3,
-	normal:   lm.vec3,
-	texture:  u32,
+	position:  lm.vec3,
+	color:     lm.vec4,
+	uvw:       lm.vec3,
+	normal:    lm.vec3,
+	tangent:   lm.vec3,
+	bitangent: lm.vec3,
+	texture:   u32,
+}
+
+Texture_Type :: enum {
+	Diffuse,
+	Specular,
+	Normal,
+	Height,
+}
+
+Texture :: struct {
+	id: u32,
+	type: Texture_Type,
+}
+
+_Mesh :: struct {
+	vertices: [dynamic]Vertex,
+	indices:  [dynamic]u32,
+	textures: [dynamic]Texture,
+}
+
+Model :: struct {
+	meshes: [dynamic]_Mesh
 }
 
 Renderer :: struct {
@@ -487,8 +511,8 @@ renderer_draw :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, wi
 }
 
 renderer_push_line :: proc (a_position: lm.vec3, b_position: lm.vec3, texture: u32) {
-	a := Vertex { a_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec3{0.0, 0.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
-	b := Vertex { b_position, lm.vec4{1.0, 1.0, 1.0, 1.0}, lm.vec3{1.0, 1.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
+	a := Vertex { position=a_position, color=lm.vec4{1.0, 1.0, 1.0, 1.0}, uvw=lm.vec3{0.0, 0.0, 0.0}, normal=lm.vec3{0.0, 0.0, 0.0}, texture=texture}
+	b := Vertex { position=b_position, color=lm.vec4{1.0, 1.0, 1.0, 1.0}, uvw=lm.vec3{1.0, 1.0, 0.0}, normal=lm.vec3{0.0, 0.0, 0.0}, texture=texture}
 	append(&AppRenderer.lines_vertices, a)
 	append(&AppRenderer.lines_vertices, b)
 }
@@ -519,22 +543,70 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 	c := lm.vec3{quad.point.x + quad.width, quad.point.y + quad.height, quad.point.z}
 	d := lm.vec3{quad.point.x, quad.point.y + quad.height, quad.point.z}
 
-	va := Vertex { a, color, lm.vec3{0.0, 0.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
-	vb := Vertex { b, color, lm.vec3{1.0, 0.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
-	vc := Vertex { c, color, lm.vec3{1.0, 1.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
-	vd := Vertex { d, color, lm.vec3{0.0, 1.0, 0.0}, lm.vec3{0.0, 0.0, 0.0}, texture}
+	va := Vertex { position=a, color=color, uvw=lm.vec3{0.0, 0.0, 0.0}, normal=lm.vec3{0.0, 0.0, 0.0}, texture=texture}
+	vb := Vertex { position=b, color=color, uvw=lm.vec3{1.0, 0.0, 0.0}, normal=lm.vec3{0.0, 0.0, 0.0}, texture=texture}
+	vc := Vertex { position=c, color=color, uvw=lm.vec3{1.0, 1.0, 0.0}, normal=lm.vec3{0.0, 0.0, 0.0}, texture=texture}
+	vd := Vertex { position=d, color=color, uvw=lm.vec3{0.0, 1.0, 0.0}, normal=lm.vec3{0.0, 0.0, 0.0}, texture=texture}
 
 	renderer_push_triangle(va, vb, vc, texture)
 	renderer_push_triangle(va, vc, vd, texture)
 }
 
-renderer_load_model :: proc (model_path: string) -> (model: ^ai.aiScene){
-	model = ai.import_file(strings.clone_to_cstring(model_path), u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
-	if model == nil || model.mRootNode == nil || (model.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) != 0 {
+renderer_load_model :: proc (model_path: string) -> (model: Model){
+	scene := ai.import_file(strings.clone_to_cstring(model_path), u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
+	defer ai.release_import(scene)
+	
+	if scene == nil || scene.mRootNode == nil || (scene.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) != 0 {
 		fmt.eprintfln("Assimp failed to load %v", model_path)
 		assert(false)
 	}
+
+	model.meshes = make([dynamic]_Mesh, 0)
+	reserve(&model.meshes, scene.mNumMeshes)
+
+	node := scene.mRootNode
+	for i in 0..<node.mNumMeshes {
+		ai_mesh := scene.mMeshes[node.mMeshes[i]]
+		mesh: _Mesh
+		
+		mesh.vertices = make([dynamic]Vertex, 0)
+		for i in 0..<ai_mesh.mNumVertices {
+			ai_vertex := ai_mesh.mVertices[i]
+			
+			vertex: Vertex
+			vertex.position = ai_vertex.xyz
+
+			// If it has normals
+			if ai_mesh.mNormals != nil && ai_mesh.mNumVertices > 0 {
+				vertex.normal = ai_mesh.mNormals[i].xyz
+			}
+
+			// If it has texture coordinates
+			if ai_mesh.mTextureCoords[0] != nil {
+				vertex.uvw       = ai_mesh.mTextureCoords[0][i].xyz
+				vertex.tangent   = ai_mesh.mTangents[i].xyz
+				vertex.bitangent = ai_mesh.mBitangents[i].xyz
+			}
+
+			append(&mesh.vertices, vertex)
+		}
+
+		mesh.indices = make([dynamic]u32, 0)
+		for i in 0..<ai_mesh.mNumFaces {
+			ai_face := ai_mesh.mFaces[i]
+			for j in 0..<ai_face.mNumIndices {
+				append(&mesh.indices, ai_face.mIndices[j])
+			}
+		}
+
+		mesh.textures = make([dynamic]Texture, 0)
+	}
+
 	return model
+}
+
+renderer_push_model :: proc (model: ^ai.aiScene) {
+
 }
 
 renderer_push_entity :: proc (entity: Entity) {
@@ -551,7 +623,7 @@ renderer_push_entity :: proc (entity: Entity) {
 			if indices.fields.v  != 0 { v  = entity.mesh.vertex[indices.fields.v - 1] }
 			if indices.fields.vn != 0 { vt = entity.mesh.vertex_texture[indices.fields.vn - 1] }
 			if indices.fields.vt != 0 { vn = entity.mesh.vertex_normal[indices.fields.vt - 1] }
-			vertices[i] = Vertex{ v , Color_White, vt, vn, entity.texture }
+			vertices[i] = Vertex{ position=v, color=Color_White, uvw=vt, normal=vn, texture=entity.texture }
 		}
 		renderer_push_triangle(vertices[0], vertices[1], vertices[2], entity.texture)
 		if is_quad {
