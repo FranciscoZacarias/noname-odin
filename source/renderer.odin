@@ -5,9 +5,10 @@ import "core:fmt"
 import "core:time"
 import "core:strings"
 
+import lm "core:math/linalg/glsl"
 import gl "vendor:OpenGL"
 import stb_img "vendor:stb/image"
-import lm "core:math/linalg/glsl"
+import ai "external/assimp"
 
 MSAA_SAMPLES :: 8
 
@@ -525,6 +526,15 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 
 	renderer_push_triangle(va, vb, vc, texture)
 	renderer_push_triangle(va, vc, vd, texture)
+}
+
+renderer_load_model :: proc (model_path: string) -> (model: ^ai.aiScene){
+	model = ai.import_file(strings.clone_to_cstring(model_path), u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
+	if model == nil || model.mRootNode == nil || (model.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) != 0 {
+		fmt.eprintfln("Assimp failed to load %v", model_path)
+		assert(false)
+	}
+	return model
 }
 
 renderer_push_entity :: proc (entity: Entity) {

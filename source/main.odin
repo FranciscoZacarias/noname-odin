@@ -8,8 +8,6 @@ import lm "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-import ai "external/assimp"
-
 Window_Width  : i32 : 1280
 Window_Height : i32 : 720
 
@@ -51,14 +49,10 @@ main :: proc () {
 	yell  := renderer_load_color(1.0, 1.0,   0, 0.7)
 	kakashi_eye := renderer_load_texture("resources/kakashi.png")
 
-	suzanne_from_assimp := ai.import_file("resources/suzanne.obj", u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
-	if suzanne_from_assimp == nil || suzanne_from_assimp.mRootNode == nil || (suzanne_from_assimp.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) != 0 {
-		fmt.eprintln("Assimp failed to load resources/suzanne.obj")
-		assert(false)
-	}
-
 	suzanne_mesh := mesh_from_wavefront("resources/suzanne.obj")
 	suzanne := game_state_push_entity(suzanne_mesh, yell)
+
+	suzanne_model := renderer_load_model("resources/suzanne.obj")
 
 	renderer_push_entity(suzanne)
 
