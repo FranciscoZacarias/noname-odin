@@ -28,8 +28,6 @@ Vertex :: struct {
 	color:     lm.vec4,
 	uvw:       lm.vec3,
 	normal:    lm.vec3,
-	tangent:   lm.vec3,
-	bitangent: lm.vec3,
 	texture:   u32,
 }
 
@@ -456,7 +454,7 @@ renderer_draw :: proc (view: lm.mat4, projection: lm.mat4, window_width: i32, wi
   gl.Enable(gl.DEPTH_TEST)
 
 	gl.UseProgram(AppRenderer.shader)
-	model      := get_model_matrix_from_entity(GameState.entities[0])
+	model      := lm.identity(lm.mat4)
 	view       := view
 	projection := projection
 	renderer_set_uniform_mat4fv(AppRenderer.shader, "u_model",      &model) // TODO(fz): Temporary. Model should come from whatever we're rendering
@@ -553,53 +551,27 @@ renderer_push_quad :: proc (quad: Quad, color: lm.vec4, texture: u32) {
 }
 
 renderer_load_model :: proc (model_path: string) -> (model: Model){
-	scene := ai.import_file(strings.clone_to_cstring(model_path), u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
+	scene: ^ai.aiScene = ai.import_file(strings.clone_to_cstring(model_path), u32(ai.aiPostProcessSteps.Triangulate | ai.aiPostProcessSteps.FlipUVs))
 	defer ai.release_import(scene)
 	
 	if scene == nil || scene.mRootNode == nil || (scene.mFlags & u32(ai.aiSceneFlags.INCOMPLETE)) != 0 {
-		fmt.eprintfln("Assimp failed to load %v", model_path)
+		fmt.eprintfln("Assimp failed to load %v: %v", model_path, ai.get_error_string())
 		assert(false)
 	}
 
-	model.meshes = make([dynamic]_Mesh, 0)
-	reserve(&model.meshes, scene.mNumMeshes)
+	root_node := scene.mRootNode
 
-	node := scene.mRootNode
-	for i in 0..<node.mNumMeshes {
-		ai_mesh := scene.mMeshes[node.mMeshes[i]]
-		mesh: _Mesh
+	process_node :: proc (scene: ^ai.aiScene, node: ^ai.aiNode) -> [dynamic]_Mesh {
+		result: [dynamic]_Mesh
+		result = make([dynamic]_Mesh, scene.mNumMeshes)
 		
-		mesh.vertices = make([dynamic]Vertex, 0)
-		for i in 0..<ai_mesh.mNumVertices {
-			ai_vertex := ai_mesh.mVertices[i]
-			
-			vertex: Vertex
-			vertex.position = ai_vertex.xyz
-
-			// If it has normals
-			if ai_mesh.mNormals != nil && ai_mesh.mNumVertices > 0 {
-				vertex.normal = ai_mesh.mNormals[i].xyz
-			}
-
-			// If it has texture coordinates
-			if ai_mesh.mTextureCoords[0] != nil {
-				vertex.uvw       = ai_mesh.mTextureCoords[0][i].xyz
-				vertex.tangent   = ai_mesh.mTangents[i].xyz
-				vertex.bitangent = ai_mesh.mBitangents[i].xyz
-			}
-
-			append(&mesh.vertices, vertex)
+		for i in 0..<node.mNumMeshes {
+		}
+		for i in 0..<node.mNumChildren {
+			process_node(scene, node.mChildren[i])
 		}
 
-		mesh.indices = make([dynamic]u32, 0)
-		for i in 0..<ai_mesh.mNumFaces {
-			ai_face := ai_mesh.mFaces[i]
-			for j in 0..<ai_face.mNumIndices {
-				append(&mesh.indices, ai_face.mIndices[j])
-			}
-		}
-
-		mesh.textures = make([dynamic]Texture, 0)
+		return result
 	}
 
 	return model

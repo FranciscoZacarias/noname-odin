@@ -49,12 +49,12 @@ main :: proc () {
 	yell  := renderer_load_color(1.0, 1.0,   0, 0.7)
 	kakashi_eye := renderer_load_texture("resources/kakashi.png")
 
-	suzanne_mesh := mesh_from_wavefront("resources/suzanne.obj")
-	suzanne := game_state_push_entity(suzanne_mesh, yell)
+	// suzanne_mesh := mesh_from_wavefront("resources/crate.obj")
+	// suzanne := game_state_push_entity(suzanne_mesh, yell)
 
-	suzanne_model := renderer_load_model("resources/suzanne.obj")
+	suzanne_model := renderer_load_model("resources/crate.obj")
 
-	renderer_push_entity(suzanne)
+	// renderer_push_entity(suzanne)
 
 	// XYZ axis
 	renderer_push_line(lm.vec3{-32.0,  0.0,   0.0}, lm.vec3{32.0, 0.0,  0.0}, red)
